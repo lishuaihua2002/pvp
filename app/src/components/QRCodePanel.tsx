@@ -13,8 +13,8 @@ export default function QRCodePanel() {
 
   return (
     <div className="panel text-center">
-      <h3 className="mb-2 text-sm font-bold text-arcade-cyan">📱 扫码用手机加入对战</h3>
-      {dataUrl && <img src={dataUrl} alt="访问二维码" className="mx-auto rounded-lg" />}
+      <h3 className="mb-2 text-sm font-bold text-arcade-cyan">📱 Scan to join on your phone</h3>
+      {dataUrl && <img src={dataUrl} alt="QR code" className="mx-auto rounded-lg" />}
       <div className="mt-2 break-all text-xs text-gray-500">{url}</div>
     </div>
   )

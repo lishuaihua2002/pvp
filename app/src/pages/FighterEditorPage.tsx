@@ -2,21 +2,23 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { saveFighter } from '../lib/supabase/fighters'
+import { supabaseConfigured } from '../lib/supabase/client'
+import { saveLocalFighter } from '../lib/localFighters'
 import { ALL_PART_TYPES, type PartType, type FighterManifest, type FighterPart } from '../types/fighter'
 import PhaserArena from '../components/PhaserArena'
 import { initAudio, playSfx } from '../game/audio/sfx'
 
 const PART_LABELS: Record<PartType, string> = {
-  head: '头',
-  torso: '躯干',
-  'left-upper-arm': '左上臂',
-  'left-lower-arm': '左前臂',
-  'right-upper-arm': '右上臂',
-  'right-lower-arm': '右前臂',
-  'left-upper-leg': '左大腿',
-  'left-lower-leg': '左小腿',
-  'right-upper-leg': '右大腿',
-  'right-lower-leg': '右小腿',
+  head: 'Head',
+  torso: 'Torso',
+  'left-upper-arm': 'L Upper Arm',
+  'left-lower-arm': 'L Forearm',
+  'right-upper-arm': 'R Upper Arm',
+  'right-lower-arm': 'R Forearm',
+  'left-upper-leg': 'L Thigh',
+  'left-lower-leg': 'L Shin',
+  'right-upper-leg': 'R Thigh',
+  'right-lower-leg': 'R Shin',
 }
 
 interface Rect {
@@ -66,7 +68,7 @@ async function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const i = new Image()
       i.onload = () => resolve(i)
-      i.onerror = () => reject(new Error('图片解析失败'))
+      i.onerror = () => reject(new Error('Failed to decode image'))
       i.src = url
     })
     const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height))
@@ -83,7 +85,7 @@ async function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
 
 function canvasToBlob(canvas: HTMLCanvasElement, quality = 0.85): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('图片导出失败'))), 'image/webp', quality)
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Failed to export image'))), 'image/webp', quality)
   })
 }
 
@@ -110,11 +112,11 @@ export default function FighterEditorPage() {
     setError(null)
     if (!file) return
     if (!/image\/(jpeg|png|webp)/.test(file.type)) {
-      setError('只支持 JPG / PNG / WEBP 格式')
+      setError('Only JPG / PNG / WEBP formats are supported')
       return
     }
     if (file.size > MAX_FILE) {
-      setError('图片不能超过10MB')
+      setError('Image must be under 10MB')
       return
     }
     try {
@@ -291,7 +293,7 @@ export default function FighterEditorPage() {
     setPreviewManifest({
       id: 'editor-preview',
       ownerId: userId ?? 'me',
-      name: name || '我的角色',
+      name: name || 'My Fighter',
       parts: parts.map((p) => p.part),
       scale: 1,
     })
@@ -299,14 +301,27 @@ export default function FighterEditorPage() {
 
   const save = async () => {
     setError(null)
-    if (!userId || !photo) return
+    if (!photo) return
     if (!name.trim()) {
-      setError('请给角色起个名字')
+      setError('Please give your fighter a name')
       return
     }
     setSaving(true)
     try {
       const built = buildParts()
+      if (!supabaseConfigured || !userId) {
+        // local mode: store in the browser
+        saveLocalFighter({
+          id: `local-${Date.now()}`,
+          ownerId: 'local',
+          name: name.trim(),
+          parts: built.map(({ part }) => part),
+          scale: 1,
+        })
+        playSfx('ready')
+        navigate('/local-test')
+        return
+      }
       const partBlobs = await Promise.all(
         built.map(async ({ part, canvas }) => ({
           partType: part.partType,
@@ -359,7 +374,7 @@ export default function FighterEditorPage() {
           className="btn-secondary absolute left-3 top-3 z-10"
           onClick={() => setPreviewManifest(null)}
         >
-          ← 返回编辑
+          ← Back to editor
         </button>
       </div>
     )
@@ -368,15 +383,20 @@ export default function FighterEditorPage() {
   return (
     <div className="mx-auto flex h-full max-w-6xl flex-col gap-4 overflow-y-auto p-4">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-black text-arcade-cyan">📷 照片角色编辑器</h1>
-        <Link className="btn-secondary" to="/">
-          返回大厅
+        <h1 className="text-2xl font-black text-arcade-cyan">📷 Photo Fighter Editor</h1>
+        <Link className="btn-secondary" to={supabaseConfigured && session ? '/' : '/local-test'}>
+          Back
         </Link>
       </header>
 
       {profile?.is_anonymous && (
         <div className="rounded-lg bg-yellow-900/40 border border-yellow-600 p-3 text-sm text-yellow-200">
-          游客创建的角色在退出后可能无法恢复，建议注册账号。
+          Fighters created as a guest may not be recoverable after you leave. Consider registering an account.
+        </div>
+      )}
+      {(!supabaseConfigured || !session) && (
+        <div className="rounded-lg bg-blue-900/40 border border-blue-600 p-3 text-sm text-blue-200">
+          Local mode: your fighter will be saved in this browser and usable in Local Versus.
         </div>
       )}
 
@@ -385,8 +405,8 @@ export default function FighterEditorPage() {
       {!photo ? (
         <label className="panel flex h-64 cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed border-arcade-border hover:border-arcade-cyan">
           <div className="text-4xl">📤</div>
-          <div className="font-bold">点击上传全身照片</div>
-          <div className="text-xs text-gray-500">JPG / PNG / WEBP，最大10MB · 建议正面站立全身照 · 图片会在浏览器内压缩并去除EXIF信息</div>
+          <div className="font-bold">Click to upload a full-body photo</div>
+          <div className="text-xs text-gray-500">JPG / PNG / WEBP, max 10MB · A front-facing standing full-body photo works best · The image is compressed in your browser and EXIF data is removed</div>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
@@ -405,13 +425,13 @@ export default function FighterEditorPage() {
               onPointerUp={onPointerUp}
             />
             <div className="mt-2 text-xs text-gray-500">
-              选中部位后拖动移动框；「调整大小」模式拖动改变宽高；「橡皮擦」在照片上涂抹去除背景（作用于当前部位）。
+              Drag to move the selected part box. In Resize mode, drag to change its size. Use the Eraser to paint away the background (applies to the current part).
             </div>
           </div>
 
           <div className="flex flex-col gap-3">
             <div className="panel">
-              <div className="mb-2 text-sm font-bold text-arcade-cyan">身体部位</div>
+              <div className="mb-2 text-sm font-bold text-arcade-cyan">Body parts</div>
               <div className="grid grid-cols-2 gap-1.5">
                 {ALL_PART_TYPES.map((pt) => (
                   <button
@@ -426,13 +446,13 @@ export default function FighterEditorPage() {
             </div>
 
             <div className="panel">
-              <div className="mb-2 text-sm font-bold text-arcade-cyan">工具</div>
+              <div className="mb-2 text-sm font-bold text-arcade-cyan">Tools</div>
               <div className="grid grid-cols-3 gap-1.5">
                 {(
                   [
-                    ['move', '移动'],
-                    ['resize', '调整大小'],
-                    ['erase', '橡皮擦'],
+                    ['move', 'Move'],
+                    ['resize', 'Resize'],
+                    ['erase', 'Eraser'],
                   ] as const
                 ).map(([m, label]) => (
                   <button key={m} className={`${mode === m ? 'btn-primary' : 'btn-secondary'} text-xs`} onClick={() => setMode(m)}>
@@ -442,7 +462,7 @@ export default function FighterEditorPage() {
               </div>
               {mode === 'erase' && (
                 <div className="mt-2">
-                  <label className="text-xs text-gray-400">笔刷大小: {brushRadius}px</label>
+                  <label className="text-xs text-gray-400">Brush size: {brushRadius}px</label>
                   <input
                     type="range"
                     min={4}
@@ -455,10 +475,10 @@ export default function FighterEditorPage() {
               )}
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 <button className="btn-secondary text-xs" disabled={undoStack.length === 0} onClick={undo}>
-                  ↩ 撤销
+                  ↩ Undo
                 </button>
                 <button className="btn-secondary text-xs" disabled={redoStack.length === 0} onClick={redo}>
-                  ↪ 重做
+                  ↪ Redo
                 </button>
               </div>
             </div>
@@ -466,16 +486,16 @@ export default function FighterEditorPage() {
             <div className="panel flex flex-col gap-2">
               <input
                 className="input"
-                placeholder="角色名字"
+                placeholder="Fighter name"
                 maxLength={20}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <button className="btn-secondary" onClick={preview}>
-                👀 动画预览
+                👀 Animation preview
               </button>
               <button className="btn-primary" disabled={saving} onClick={() => void save()}>
-                {saving ? '保存中...' : '💾 保存角色'}
+                {saving ? 'Saving...' : '💾 Save fighter'}
               </button>
               <button
                 className="btn-warn text-xs"
@@ -485,7 +505,7 @@ export default function FighterEditorPage() {
                   setStrokes([])
                 }}
               >
-                重新上传照片
+                Upload a different photo
               </button>
             </div>
           </div>

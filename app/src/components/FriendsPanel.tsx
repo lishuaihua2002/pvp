@@ -95,7 +95,7 @@ export default function FriendsPanel({ userId }: { userId: string }) {
   const sendRequest = async (targetId: string) => {
     playSfx('click')
     const { error } = await supabase.rpc('send_friend_request', { p_receiver_id: targetId })
-    setInfo(error ? error.message : '好友申请已发送')
+    setInfo(error ? error.message : 'Friend request sent')
   }
 
   const respond = async (requestId: string, action: 'accept' | 'reject') => {
@@ -124,7 +124,7 @@ export default function FriendsPanel({ userId }: { userId: string }) {
             💬 {chatWith.display_name || chatWith.username}
           </div>
           <button className="text-sm text-gray-400 hover:text-white" onClick={() => setChatWith(null)}>
-            ← 返回
+            ← Back
           </button>
         </div>
         <div className="flex-1 overflow-y-auto rounded bg-black/30 p-2 text-sm">
@@ -139,20 +139,20 @@ export default function FriendsPanel({ userId }: { userId: string }) {
               </span>
             </div>
           ))}
-          {messages.length === 0 && <div className="text-gray-500">开始聊天吧</div>}
+          {messages.length === 0 && <div className="text-gray-500">Say hi!</div>}
           <div ref={chatBottomRef} />
         </div>
         <div className="mt-2 flex gap-2">
           <input
             className="input flex-1"
             maxLength={500}
-            placeholder="输入消息..."
+            placeholder="Type a message..."
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void sendMessage()}
           />
           <button className="btn-primary" onClick={() => void sendMessage()}>
-            发送
+            Send
           </button>
         </div>
       </div>
@@ -164,9 +164,9 @@ export default function FriendsPanel({ userId }: { userId: string }) {
       <div className="mb-3 grid grid-cols-3 gap-2 text-sm">
         {(
           [
-            ['friends', `好友 ${friends.length}`],
-            ['search', '找人'],
-            ['requests', `申请 ${requests.length}`],
+            ['friends', `Friends ${friends.length}`],
+            ['search', 'Search'],
+            ['requests', `Requests ${requests.length}`],
           ] as const
         ).map(([t, label]) => (
           <button key={t} className={tab === t ? 'btn-primary' : 'btn-secondary'} onClick={() => setTab(t)}>
@@ -187,14 +187,14 @@ export default function FriendsPanel({ userId }: { userId: string }) {
             <div key={f.friend_id} className="flex items-center justify-between rounded bg-black/30 p-2">
               <div>
                 <div className="text-sm font-bold">{f.display_name || f.username}</div>
-                <div className="text-xs text-gray-500">{f.source === 'match_auto' ? '⚔️ 对战结缘' : '手动添加'}</div>
+                <div className="text-xs text-gray-500">{f.source === 'match_auto' ? '⚔️ Met in battle' : 'Added manually'}</div>
               </div>
               <button className="btn-secondary text-xs" onClick={() => setChatWith(f)}>
-                私聊
+                Chat
               </button>
             </div>
           ))}
-          {friends.length === 0 && <div className="text-sm text-gray-500">暂无好友。对战超过1分钟会自动成为好友！</div>}
+          {friends.length === 0 && <div className="text-sm text-gray-500">No friends yet. Fight someone for over a minute to become friends automatically!</div>}
         </div>
       )}
 
@@ -203,23 +203,23 @@ export default function FriendsPanel({ userId }: { userId: string }) {
           <div className="flex gap-2">
             <input
               className="input flex-1"
-              placeholder="输入用户名搜索"
+              placeholder="Search by username"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void search()}
             />
             <button className="btn-secondary" onClick={() => void search()}>
-              搜索
+              Search
             </button>
           </div>
           {results.map((r) => (
             <div key={r.id} className="flex items-center justify-between rounded bg-black/30 p-2">
               <div className="text-sm">{r.display_name || r.username}</div>
               {r.is_friend ? (
-                <span className="text-xs text-gray-500">已是好友</span>
+                <span className="text-xs text-gray-500">Already friends</span>
               ) : (
                 <button className="btn-secondary text-xs" onClick={() => void sendRequest(r.id)}>
-                  加好友
+                  Add friend
                 </button>
               )}
             </div>
@@ -231,18 +231,18 @@ export default function FriendsPanel({ userId }: { userId: string }) {
         <div className="flex flex-col gap-2">
           {requests.map((r) => (
             <div key={r.id} className="flex items-center justify-between rounded bg-black/30 p-2">
-              <div className="text-sm">{r.profiles?.display_name || r.profiles?.username || '玩家'}</div>
+              <div className="text-sm">{r.profiles?.display_name || r.profiles?.username || 'Player'}</div>
               <div className="flex gap-2">
                 <button className="btn-primary text-xs" onClick={() => void respond(r.id, 'accept')}>
-                  接受
+                  Accept
                 </button>
                 <button className="btn-warn text-xs" onClick={() => void respond(r.id, 'reject')}>
-                  拒绝
+                  Decline
                 </button>
               </div>
             </div>
           ))}
-          {requests.length === 0 && <div className="text-sm text-gray-500">暂无好友申请</div>}
+          {requests.length === 0 && <div className="text-sm text-gray-500">No pending requests</div>}
         </div>
       )}
     </div>

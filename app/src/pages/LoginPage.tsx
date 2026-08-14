@@ -22,19 +22,19 @@ export default function LoginPage() {
 
   const validate = (): string | null => {
     if (mode === 'guest') {
-      if (!nickname.trim()) return '请输入临时昵称'
+      if (!nickname.trim()) return 'Please enter a temporary nickname'
       return null
     }
     if (mode === 'forgot') {
-      if (!/^\S+@\S+\.\S+$/.test(email)) return '请输入有效邮箱'
+      if (!/^\S+@\S+\.\S+$/.test(email)) return 'Please enter a valid email'
       return null
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) return '请输入有效邮箱'
-    if (password.length < 6) return '密码至少6位'
+    if (!/^\S+@\S+\.\S+$/.test(email)) return 'Please enter a valid email'
+    if (password.length < 6) return 'Password must be at least 6 characters'
     if (mode === 'register') {
       const u = username.trim()
-      if (u.length < 3 || u.length > 20) return '用户名长度需为3~20个字符'
-      if (!/^[\u4e00-\u9fa5a-zA-Z0-9_]+$/.test(u)) return '用户名只能包含中文、字母、数字和下划线'
+      if (u.length < 3 || u.length > 20) return 'Username must be 3-20 characters'
+      if (!/^[\u4e00-\u9fa5a-zA-Z0-9_]+$/.test(u)) return 'Username may only contain letters, numbers, underscores and CJK characters'
     }
     return null
   }
@@ -45,7 +45,7 @@ export default function LoginPage() {
     setError(null)
     setNotice(null)
     if (!supabaseConfigured) {
-      setError('尚未配置 Supabase，账号/游客功能暂不可用。请先进入“本地双人试玩”。')
+      setError('Supabase is not configured, so accounts and guest play are unavailable. Try Local Versus instead.')
       return
     }
     const v = validate()
@@ -62,7 +62,7 @@ export default function LoginPage() {
       } else if (mode === 'register') {
         err = await signUp(email, password, username.trim())
         if (!err) {
-          setNotice('注册成功！如果需要邮箱验证，请前往邮箱点击确认链接后登录。')
+          setNotice('Registered! If email confirmation is required, check your inbox and confirm before logging in.')
           setMode('login')
         }
       } else if (mode === 'guest') {
@@ -70,7 +70,7 @@ export default function LoginPage() {
         if (!err) navigate('/')
       } else {
         err = await resetPassword(email)
-        if (!err) setNotice('重置密码邮件已发送，请查收')
+        if (!err) setNotice('Password reset email sent. Check your inbox.')
       }
       if (err) setError(err)
     } finally {
@@ -83,16 +83,16 @@ export default function LoginPage() {
       <div className="panel w-full max-w-md">
         <div className="mb-6 text-center">
           <div className="text-5xl font-black tracking-widest">
-            <span className="text-arcade-accent">照片</span>
-            <span className="text-arcade-cyan">格斗</span>
+            <span className="text-arcade-accent">PHOTO</span>
+            <span className="text-arcade-cyan">FIGHTER</span>
           </div>
-          <div className="mt-2 text-sm text-gray-400">PHOTO FIGHTER · 横版1v1 PVP</div>
+          <div className="mt-2 text-sm text-gray-400">Side-scrolling 1v1 PVP</div>
         </div>
 
         {!supabaseConfigured && (
           <div className="mb-4 rounded-lg bg-yellow-900/40 border border-yellow-600 p-3 text-sm text-yellow-200">
-            尚未配置Supabase环境变量（VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY），
-            登录功能不可用。可以先进入 <a className="underline" href="/local-test">本地双人试玩</a>。
+            Supabase env vars (VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY) are not configured,
+            so login is unavailable. Try <a className="underline" href="/local-test">Local Versus</a> instead.
           </div>
         )}
 
@@ -108,7 +108,7 @@ export default function LoginPage() {
                 setError(null)
               }}
             >
-              {m === 'login' ? '登录' : m === 'register' ? '注册' : '游客试玩'}
+              {m === 'login' ? 'Log in' : m === 'register' ? 'Register' : 'Guest play'}
             </button>
           ))}
         </div>
@@ -118,13 +118,13 @@ export default function LoginPage() {
             <>
               <input
                 className="input"
-                placeholder="临时昵称（现场试玩）"
+                placeholder="Temporary nickname"
                 maxLength={20}
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
               />
               <div className="text-xs text-gray-500">
-                游客数据仅用于现场试玩，关闭浏览器后可能无法恢复。
+                Guest data is for on-site demos only and may not be recoverable after closing the browser.
               </div>
             </>
           ) : (
@@ -132,7 +132,7 @@ export default function LoginPage() {
               {mode === 'register' && (
                 <input
                   className="input"
-                  placeholder="用户名（3~20字符，唯一）"
+                  placeholder="Username (3-20 chars, unique)"
                   maxLength={20}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -141,7 +141,7 @@ export default function LoginPage() {
               <input
                 className="input"
                 type="email"
-                placeholder="邮箱"
+                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -149,7 +149,7 @@ export default function LoginPage() {
                 <input
                   className="input"
                   type="password"
-                  placeholder="密码（至少6位）"
+                  placeholder="Password (min 6 characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && void submit()}
@@ -163,30 +163,30 @@ export default function LoginPage() {
 
           <button className="btn-primary text-lg" disabled={busy} onClick={() => void submit()}>
             {busy
-              ? '请稍候...'
+              ? 'Please wait...'
               : mode === 'login'
-                ? '登录'
+                ? 'Log in'
                 : mode === 'register'
-                  ? '注册'
+                  ? 'Register'
                   : mode === 'guest'
-                    ? '快速进入游戏'
-                    : '发送重置邮件'}
+                    ? 'Quick play'
+                    : 'Send reset email'}
           </button>
 
           {mode === 'login' && (
             <button className="text-sm text-gray-400 hover:text-arcade-cyan" onClick={() => setMode('forgot')}>
-              忘记密码？
+              Forgot password?
             </button>
           )}
           {mode === 'forgot' && (
             <button className="text-sm text-gray-400 hover:text-arcade-cyan" onClick={() => setMode('login')}>
-              返回登录
+              Back to login
             </button>
           )}
         </div>
 
         <div className="mt-6 border-t border-arcade-border pt-4 text-center text-xs text-gray-500">
-          键位：A/D 移动 · W/空格 跳跃 · J 出拳 · K 扫腿 · Esc 退出
+          Controls: A/D move · W/Space jump · J punch · K kick · Esc quit
         </div>
       </div>
     </div>

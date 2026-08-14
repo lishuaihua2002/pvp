@@ -43,7 +43,7 @@ export default function ArenaPage() {
         ])
         setFighters({ mine, theirs })
       } catch (e) {
-        setLoadError(`角色资源加载失败：${(e as Error).message}`)
+        setLoadError(`Failed to load fighter assets: ${(e as Error).message}`)
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -64,7 +64,7 @@ export default function ArenaPage() {
       remotePlayerId: match.opponentId,
       localFighter: fighters.mine,
       remoteFighter: fighters.theirs,
-      localName: profile?.display_name || profile?.username || '我',
+      localName: profile?.display_name || profile?.username || 'Me',
       remoteName: match.opponentName,
       isHost: match.isHost,
       channel: channel ?? undefined,
@@ -94,11 +94,11 @@ export default function ArenaPage() {
     return (
       <div className="flex h-full items-center justify-center p-4">
         <div className="panel w-full max-w-md text-center">
-          <div className="mb-3 text-3xl font-black text-arcade-cyan">对战结束</div>
+          <div className="mb-3 text-3xl font-black text-arcade-cyan">Match over</div>
           <div className="mb-4 text-sm text-gray-400">
-            {exitReason === 'self' && '你已退出对战'}
-            {exitReason === 'opponent' && '对手已离开对战'}
-            {exitReason === 'disconnect' && '连接中断，对战已结束'}
+            {exitReason === 'self' && 'You left the match'}
+            {exitReason === 'opponent' && 'Your opponent left the match'}
+            {exitReason === 'disconnect' && 'Connection lost, match ended'}
           </div>
           <button
             className="btn-primary w-full text-lg"
@@ -107,7 +107,7 @@ export default function ArenaPage() {
               navigate('/')
             }}
           >
-            返回大厅
+            Back to lobby
           </button>
         </div>
       </div>
@@ -126,7 +126,7 @@ export default function ArenaPage() {
               navigate('/')
             }}
           >
-            返回大厅
+            Back to lobby
           </button>
         </div>
       </div>
@@ -136,8 +136,8 @@ export default function ArenaPage() {
   if (!config) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3">
-        <div className="text-2xl font-black text-arcade-cyan animate-pulse">对战加载中...</div>
-        <div className="text-sm text-gray-500">正在加载角色资源</div>
+        <div className="text-2xl font-black text-arcade-cyan animate-pulse">Loading match...</div>
+        <div className="text-sm text-gray-500">Loading fighter assets</div>
       </div>
     )
   }
@@ -147,7 +147,7 @@ export default function ArenaPage() {
       <PhaserArena config={config} onSceneReady={(scene: ArenaScene) => setKeyboard(scene.keyboard)} />
       <TouchControls keyboard={keyboard} />
       <div className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-black/60 px-2 py-1 text-xs text-gray-400">
-        {ping !== null ? `延迟 ${ping}ms` : '连接中...'}
+        {ping !== null ? `Ping ${ping}ms` : 'Connecting...'}
       </div>
     </div>
   )

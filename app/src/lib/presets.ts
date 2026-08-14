@@ -13,10 +13,10 @@ interface PresetTheme {
 }
 
 const THEMES: PresetTheme[] = [
-  { id: 'preset-blaze', name: '烈焰小子 Blaze', description: '热血街头拳手', skin: '#f2c19b', outfit: '#e6392f', accent: '#ffd23e', headShape: 'round' },
-  { id: 'preset-frost', name: '寒霜武士 Frost', description: '冷静的腿法大师', skin: '#e8d3c0', outfit: '#2f7fe6', accent: '#3edcff', headShape: 'square' },
-  { id: 'preset-viper', name: '毒蛇忍者 Viper', description: '敏捷的暗影格斗家', skin: '#d9b48f', outfit: '#3fa34d', accent: '#b6ff3e', headShape: 'round' },
-  { id: 'preset-volt', name: '雷电机器人 Volt', description: '来自未来的电子战士', skin: '#c9cdd6', outfit: '#8438e6', accent: '#ffd23e', headShape: 'square' },
+  { id: 'preset-blaze', name: 'Blaze', description: 'Hot-blooded street boxer', skin: '#f2c19b', outfit: '#e6392f', accent: '#ffd23e', headShape: 'round' },
+  { id: 'preset-frost', name: 'Frost', description: 'Cool-headed kick master', skin: '#e8d3c0', outfit: '#2f7fe6', accent: '#3edcff', headShape: 'square' },
+  { id: 'preset-viper', name: 'Viper', description: 'Agile shadow fighter', skin: '#d9b48f', outfit: '#3fa34d', accent: '#b6ff3e', headShape: 'round' },
+  { id: 'preset-volt', name: 'Volt', description: 'Electric warrior from the future', skin: '#c9cdd6', outfit: '#8438e6', accent: '#ffd23e', headShape: 'square' },
 ]
 
 const PART_SIZES: Record<PartType, { w: number; h: number }> = {

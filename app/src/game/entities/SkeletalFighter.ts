@@ -93,7 +93,7 @@ export class SkeletalFighter {
             scene.textures.addImage(key, img)
             resolve()
           }
-          img.onerror = () => reject(new Error(`加载部件失败: ${part.partType}`))
+          img.onerror = () => reject(new Error(`Failed to load part: ${part.partType}`))
           img.src = part.url
         }),
     )

@@ -50,7 +50,7 @@ async function buildMatchInfo(row: MatchRow, userId: string): Promise<MatchInfo>
   return {
     matchId: row.id,
     opponentId,
-    opponentName: (opp?.display_name || opp?.username || '神秘对手') as string,
+    opponentName: (opp?.display_name || opp?.username || 'Mystery opponent') as string,
     opponentFighterId: isPlayerOne ? row.player_two_fighter_id : row.player_one_fighter_id,
     myFighterId: isPlayerOne ? row.player_one_fighter_id : row.player_two_fighter_id,
     isHost: row.host_player_id === userId,
@@ -74,7 +74,7 @@ export const useMatchStore = create<MatchStoreState>((set, get) => ({
         p_fighter_id: fighterId,
       })
       if (error) {
-        set({ status: 'idle', error: `匹配失败: ${error.message}` })
+        set({ status: 'idle', error: `Matchmaking failed: ${error.message}` })
         stopTimers()
         return
       }

@@ -44,7 +44,7 @@ export default function LobbyPage() {
   }, [status, navigate])
 
   const allFighters = [...presets, ...myFighters]
-  const displayName = profile?.display_name || profile?.username || '玩家'
+  const displayName = profile?.display_name || profile?.username || 'Player'
 
   const selectFighter = (id: string) => {
     initAudio()
@@ -58,12 +58,12 @@ export default function LobbyPage() {
       <header className="flex items-center justify-between">
         <div>
           <div className="text-3xl font-black">
-            <span className="text-arcade-accent">照片</span>
-            <span className="text-arcade-cyan">格斗</span>
+            <span className="text-arcade-accent">PHOTO</span>
+            <span className="text-arcade-cyan">FIGHTER</span>
           </div>
           <div className="text-sm text-gray-400">
             {displayName}
-            {profile?.is_anonymous && <span className="ml-2 rounded bg-arcade-border px-1.5 py-0.5 text-xs">游客</span>}
+            {profile?.is_anonymous && <span className="ml-2 rounded bg-arcade-border px-1.5 py-0.5 text-xs">Guest</span>}
           </div>
         </div>
         <div className="flex gap-2">
@@ -74,10 +74,10 @@ export default function LobbyPage() {
               setMuted(!muted)
             }}
           >
-            {muted ? '🔇 音效关' : '🔊 音效开'}
+            {muted ? '🔇 Sound off' : '🔊 Sound on'}
           </button>
           <button className="btn-secondary" onClick={() => setShowFriends((v) => !v)}>
-            好友
+            Friends
           </button>
           <button
             className="btn-warn"
@@ -86,7 +86,7 @@ export default function LobbyPage() {
               void signOut()
             }}
           >
-            登出
+            Log out
           </button>
         </div>
       </header>
@@ -96,9 +96,9 @@ export default function LobbyPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="panel lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-arcade-cyan">选择你的角色</h2>
+            <h2 className="text-lg font-bold text-arcade-cyan">Choose your fighter</h2>
             <Link className="btn-secondary" to="/editor">
-              📷 用照片创建角色
+              📷 Create fighter from photo
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -118,7 +118,7 @@ export default function LobbyPage() {
                   <div className="mb-2 flex h-24 items-center justify-center rounded-lg bg-black/40 text-3xl">🥊</div>
                 )}
                 <div className="truncate font-bold">{f.name}</div>
-                <div className="text-xs text-gray-500">{f.preset ? '预设角色' : '我的角色'}</div>
+                <div className="text-xs text-gray-500">{f.preset ? 'Preset' : 'My fighter'}</div>
                 {!f.preset && userId && (
                   <span
                     role="button"
@@ -130,7 +130,7 @@ export default function LobbyPage() {
                       )
                     }}
                   >
-                    删除
+                    Delete
                   </span>
                 )}
               </button>
@@ -146,7 +146,7 @@ export default function LobbyPage() {
                   if (userId) void cancelQueue(userId)
                 }}
               >
-                匹配中... {queueWaitSeconds}s（点击取消）
+                Matchmaking... {queueWaitSeconds}s (click to cancel)
               </button>
             ) : (
               <button
@@ -157,7 +157,7 @@ export default function LobbyPage() {
                   if (userId) void startQueue(userId, selected)
                 }}
               >
-                ⚔️ 开始在线匹配
+                ⚔️ Find online match
               </button>
             )}
             <Link
@@ -168,18 +168,18 @@ export default function LobbyPage() {
                 playSfx('click')
               }}
             >
-              🕹️ 本地双人试玩
+              🕹️ Local Versus
             </Link>
           </div>
           <div className="mt-3 text-center text-xs text-gray-500">
-            键位：A/D 移动 · W/空格 跳跃 · J 出拳 · K 扫腿 · Esc 退出
+            Controls: A/D move · W/Space jump · J punch · K kick · Esc quit
           </div>
         </section>
 
         <div className="flex flex-col gap-4">
           {showFriends && userId && !profile?.is_anonymous && <FriendsPanel userId={userId} />}
           {showFriends && profile?.is_anonymous && (
-            <div className="panel text-sm text-gray-400">游客暂不支持好友功能，注册账号后可用。</div>
+            <div className="panel text-sm text-gray-400">Friends are unavailable for guests. Register an account to use them.</div>
           )}
           <QRCodePanel />
         </div>

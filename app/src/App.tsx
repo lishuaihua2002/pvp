@@ -6,13 +6,14 @@ import LobbyPage from './pages/LobbyPage'
 import ArenaPage from './pages/ArenaPage'
 import FighterEditorPage from './pages/FighterEditorPage'
 import LocalTestPage from './pages/LocalTestPage'
+import { supabaseConfigured } from './lib/supabase/client'
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuthStore()
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center text-arcade-cyan text-xl">
-        加载中...
+        Loading...
       </div>
     )
   }
@@ -42,9 +43,13 @@ export default function App() {
         <Route
           path="/editor"
           element={
-            <Protected>
+            supabaseConfigured ? (
+              <Protected>
+                <FighterEditorPage />
+              </Protected>
+            ) : (
               <FighterEditorPage />
-            </Protected>
+            )
           }
         />
         <Route

@@ -26,13 +26,13 @@ interface AuthState {
 
 function humanError(message: string): string {
   const map: [RegExp, string][] = [
-    [/invalid login credentials/i, '邮箱或密码错误'],
-    [/user already registered/i, '该邮箱已注册'],
-    [/email not confirmed/i, '请先前往邮箱完成验证'],
-    [/password should be at least/i, '密码至少需要6位'],
-    [/rate limit/i, '操作过于频繁，请稍后再试'],
-    [/anonymous sign-ins are disabled/i, '游客登录未启用，请联系管理员'],
-    [/failed to fetch|network/i, '网络连接失败，请检查网络'],
+    [/invalid login credentials/i, 'Incorrect email or password'],
+    [/user already registered/i, 'This email is already registered'],
+    [/email not confirmed/i, 'Please confirm your email first'],
+    [/password should be at least/i, 'Password must be at least 6 characters'],
+    [/rate limit/i, 'Too many attempts, please try again later'],
+    [/anonymous sign-ins are disabled/i, 'Guest login is not enabled. Contact the admin.'],
+    [/failed to fetch|network/i, 'Network error, please check your connection'],
   ]
   for (const [re, msg] of map) if (re.test(message)) return msg
   return message

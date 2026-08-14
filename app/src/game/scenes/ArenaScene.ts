@@ -180,7 +180,7 @@ export class ArenaScene extends Phaser.Scene {
       await SkeletalFighter.loadTextures(this, cfg.localFighter)
       await SkeletalFighter.loadTextures(this, cfg.remoteFighter)
     } catch (e) {
-      this.bannerText.setText('资源加载失败').setFontSize(48)
+      this.bannerText.setText('Failed to load assets').setFontSize(48)
       console.error(e)
       return
     }
@@ -199,7 +199,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.cfg.mode === 'online' && this.cfg.channel) {
       this.cfg.channel.send('assets_loaded', {})
       this.phase = 'loading'
-      this.bannerText.setText('等待对手...').setFontSize(44)
+      this.bannerText.setText('Waiting for opponent...').setFontSize(44)
       this.selfLoaded = true
       this.tryStartCountdown()
     } else {

@@ -37,7 +37,7 @@ export async function listMyFighters(userId: string): Promise<FighterManifest[]>
 
 async function signedUrl(path: string): Promise<string> {
   const { data, error } = await supabase.storage.from('fighter-parts').createSignedUrl(path, 60 * 30)
-  if (error || !data) throw new Error('生成资源链接失败')
+  if (error || !data) throw new Error('Failed to create signed URL')
   return data.signedUrl
 }
 
@@ -81,7 +81,7 @@ export async function loadFighterById(fighterId: string): Promise<FighterManifes
     .select('id, owner_id, name, description, thumbnail_path, rig_manifest, fighter_parts(part_type, storage_path, width, height, pivot_x, pivot_y, sort_order)')
     .eq('id', fighterId)
     .maybeSingle()
-  if (error || !data) throw new Error('加载角色失败')
+  if (error || !data) throw new Error('Failed to load fighter')
   const row = data as FighterRow & { fighter_parts: PartRow[] }
   return rowToManifest(row, row.fighter_parts)
 }
@@ -107,7 +107,7 @@ export async function saveFighter(userId: string, input: SaveFighterInput): Prom
     })
     .select('id')
     .single()
-  if (error || !fighter) throw new Error(`保存角色失败: ${error?.message ?? ''}`)
+  if (error || !fighter) throw new Error(`Failed to save fighter: ${error?.message ?? ''}`)
   const fighterId = fighter.id as string
 
   const upload = async (bucket: string, path: string, blob: Blob) => {
@@ -115,7 +115,7 @@ export async function saveFighter(userId: string, input: SaveFighterInput): Prom
       contentType: 'image/webp',
       upsert: true,
     })
-    if (upErr) throw new Error(`上传失败: ${upErr.message}`)
+    if (upErr) throw new Error(`Upload failed: ${upErr.message}`)
   }
 
   await upload('fighter-originals', `${userId}/${fighterId}/original.webp`, input.original)
@@ -138,7 +138,7 @@ export async function saveFighter(userId: string, input: SaveFighterInput): Prom
     })
   }
   const { error: partsErr } = await supabase.from('fighter_parts').insert(partRows)
-  if (partsErr) throw new Error(`保存部件失败: ${partsErr.message}`)
+  if (partsErr) throw new Error(`Failed to save parts: ${partsErr.message}`)
 
   await supabase
     .from('fighters')

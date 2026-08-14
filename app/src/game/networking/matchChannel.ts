@@ -50,7 +50,7 @@ export class MatchChannel {
     })
 
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('加入对战频道超时')), 10000)
+      const timer = setTimeout(() => reject(new Error('Timed out joining match channel')), 10000)
       this.channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           clearTimeout(timer)
@@ -59,7 +59,7 @@ export class MatchChannel {
           resolve()
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           clearTimeout(timer)
-          reject(new Error(`频道连接失败: ${status}`))
+          reject(new Error(`Channel connection failed: ${status}`))
         }
       })
     })

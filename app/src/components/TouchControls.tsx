@@ -44,13 +44,13 @@ export default function TouchControls({ keyboard }: { keyboard: KeyboardInput | 
       </div>
       <div className="pointer-events-auto flex gap-3">
         <button className={btn} {...tap('jump')}>
-          跳
+          Jump
         </button>
         <button className={`${btn} border-arcade-accent/70 text-arcade-accent`} {...tap('punch')}>
-          拳
+          Punch
         </button>
         <button className={`${btn} border-arcade-accent/70 text-arcade-accent`} {...tap('kick')}>
-          腿
+          Kick
         </button>
       </div>
     </div>
