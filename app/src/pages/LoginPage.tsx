@@ -44,6 +44,10 @@ export default function LoginPage() {
     playSfx('click')
     setError(null)
     setNotice(null)
+    if (!supabaseConfigured) {
+      setError('尚未配置 Supabase，账号/游客功能暂不可用。请先进入“本地双人试玩”。')
+      return
+    }
     const v = validate()
     if (v) {
       setError(v)
