@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-arcade-bg: #0d0b1a;
+  --color-arcade-panel: #1a1730;
+  --color-arcade-border: #2e2a52;
+  --color-arcade-accent: #ff3e6c;
+  --color-arcade-accent2: #ffd23e;
+  --color-arcade-cyan: #3edcff;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--color-arcade-bg);
+  color: #f0eeff;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+button {
+  cursor: pointer;
+}
+
+@utility btn-base {
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.btn-primary {
+  @apply btn-base bg-arcade-accent text-white hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:pointer-events-none;
+}
+.btn-secondary {
+  @apply btn-base bg-arcade-panel border border-arcade-border text-arcade-cyan hover:border-arcade-cyan active:scale-95 disabled:opacity-40 disabled:pointer-events-none;
+}
+.btn-warn {
+  @apply btn-base bg-arcade-accent2 text-black hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:pointer-events-none;
+}
+.input {
+  @apply w-full rounded-lg bg-arcade-bg border border-arcade-border px-4 py-2.5 text-white outline-none focus:border-arcade-cyan;
+}
+.panel {
+  @apply rounded-2xl bg-arcade-panel border border-arcade-border p-6;
+}
