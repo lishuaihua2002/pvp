@@ -159,8 +159,13 @@ export class ArenaScene extends Phaser.Scene {
     void this.loadFighters()
 
     this.keyboard.attach()
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') this.endMatch('self')
+    }
+    window.addEventListener('keydown', onEsc)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.keyboard.detach()
+      window.removeEventListener('keydown', onEsc)
       this.pingTimer?.remove()
     })
 
