@@ -358,8 +358,17 @@ export class SkeletalFighter {
     this.inner.setScale(facing, 1)
     const root = pose.root
     this.inner.setPosition(root?.dx ?? 0, root?.dy ?? 0)
+    // whole-body rotation pivots at the feet (used by knockdown to lie flat)
+    const rootRot = root?.rot ?? 0
     if (this.mesh) {
-      const bones = posedBones(pose, this.bindBones)
+      // the mesh projects its own vertices, so rotate the skeleton instead of the container
+      this.inner.setRotation(0)
+      const bones = posedBones(pose, this.bindBones).map((b) => {
+        if (!rootRot) return b
+        const a = rot2(b.ax, b.ay, rootRot)
+        const c = rot2(b.bx, b.by, rootRot)
+        return { ax: a.x, ay: a.y, bx: c.x, by: c.y }
+      })
       const verts = this.mesh.vertices
       const n = this.skin.length
       const gx = new Float32Array(n)
@@ -390,6 +399,7 @@ export class SkeletalFighter {
       }
       return
     }
+    this.inner.setRotation(rootRot)
     for (const [pt, holder] of this.parts) {
       const p = pose[pt]
       holder.setRotation(p?.rot ?? 0)

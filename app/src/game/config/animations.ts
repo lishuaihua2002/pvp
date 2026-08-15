@@ -3,8 +3,8 @@ import type { PartType } from '../../types/fighter'
 
 /** Pose: per-part rotation (radians) and offset (px, relative to bind pose) */
 export type Pose = Partial<Record<PartType, { rot?: number; dx?: number; dy?: number }>> & {
-  /** whole-body offset */
-  root?: { dx?: number; dy?: number }
+  /** whole-body offset and rotation (rotation pivots at the feet) */
+  root?: { dx?: number; dy?: number; rot?: number }
 }
 
 export interface Keyframe {
@@ -109,10 +109,9 @@ export const ANIMATIONS: Record<ActionName, AnimationDefinition> = {
     durationFrames: 80,
     loop: false,
     keyframes: [
-      { t: 0, pose: { torso: { rot: -30 * D }, head: { rot: -30 * D }, root: { dx: -10 } } },
-      { t: 0.3, pose: { torso: { rot: -85 * D }, head: { rot: -40 * D }, root: { dx: -30, dy: 90 }, 'left-upper-leg': { rot: 30 * D }, 'right-upper-leg': { rot: 40 * D } } },
-      { t: 0.8, pose: { torso: { rot: -85 * D }, head: { rot: -40 * D }, root: { dx: -30, dy: 90 }, 'left-upper-leg': { rot: 30 * D }, 'right-upper-leg': { rot: 40 * D } } },
-      { t: 1, pose: { torso: { rot: -85 * D }, root: { dx: -30, dy: 90 } } },
+      { t: 0, pose: { torso: { rot: -20 * D }, head: { rot: -20 * D }, root: { dx: -8 } } },
+      { t: 0.35, pose: { root: { rot: -90 * D, dx: -14, dy: -30 }, torso: { rot: -6 * D }, head: { rot: -10 * D }, 'left-upper-arm': { rot: 25 * D }, 'right-upper-arm': { rot: -20 * D }, 'left-upper-leg': { rot: 14 * D }, 'right-upper-leg': { rot: -10 * D }, 'left-lower-leg': { rot: -18 * D } } },
+      { t: 1, pose: { root: { rot: -90 * D, dx: -14, dy: -30 }, torso: { rot: -6 * D }, head: { rot: -10 * D }, 'left-upper-arm': { rot: 25 * D }, 'right-upper-arm': { rot: -20 * D }, 'left-upper-leg': { rot: 14 * D }, 'right-upper-leg': { rot: -10 * D }, 'left-lower-leg': { rot: -18 * D } } },
     ],
   },
   getup: {
@@ -120,8 +119,8 @@ export const ANIMATIONS: Record<ActionName, AnimationDefinition> = {
     durationFrames: 40,
     loop: false,
     keyframes: [
-      { t: 0, pose: { torso: { rot: -85 * D }, root: { dx: -30, dy: 90 } } },
-      { t: 0.5, pose: { torso: { rot: -35 * D }, root: { dx: -12, dy: 40 }, 'left-upper-leg': { rot: 30 * D }, 'left-lower-leg': { rot: -50 * D } } },
+      { t: 0, pose: { root: { rot: -90 * D, dx: -14, dy: -30 }, torso: { rot: -6 * D } } },
+      { t: 0.5, pose: { root: { rot: -40 * D, dx: -8, dy: -10 }, torso: { rot: -20 * D }, 'left-upper-leg': { rot: 30 * D }, 'left-lower-leg': { rot: -50 * D } } },
       { t: 1, pose: {} },
     ],
   },
