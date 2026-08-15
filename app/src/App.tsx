@@ -28,7 +28,7 @@ export default function App() {
   }, [init])
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/local-test" element={<LocalTestPage />} />

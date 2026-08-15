@@ -112,7 +112,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   resetPassword: async (email) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
+      redirectTo: new URL(import.meta.env.BASE_URL, window.location.origin).href,
     })
     return error ? humanError(error.message) : null
   },

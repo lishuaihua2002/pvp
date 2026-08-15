@@ -12,11 +12,14 @@ export interface PartBox {
   angle: number
 }
 
+/** Resolve a public asset against the deploy base path (GitHub Pages serves under /<repo>/). */
+const asset = (path: string) => new URL(path, new URL(import.meta.env.BASE_URL, window.location.origin)).href
+
 let filesetPromise: Promise<Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>> | null = null
 
 function getFileset() {
   if (!filesetPromise) {
-    filesetPromise = FilesetResolver.forVisionTasks('/mediapipe-wasm')
+    filesetPromise = FilesetResolver.forVisionTasks(asset('mediapipe-wasm'))
     filesetPromise.catch(() => {
       filesetPromise = null
     })
@@ -31,7 +34,7 @@ function getLandmarker(): Promise<PoseLandmarker> {
     landmarkerPromise = (async () => {
       const fileset = await getFileset()
       return PoseLandmarker.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task' },
+        baseOptions: { modelAssetPath: asset('models/pose_landmarker_lite.task') },
         runningMode: 'IMAGE',
         numPoses: 1,
       })
@@ -50,7 +53,7 @@ function getSegmenter(): Promise<ImageSegmenter> {
     segmenterPromise = (async () => {
       const fileset = await getFileset()
       return ImageSegmenter.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: '/models/selfie_segmenter.tflite' },
+        baseOptions: { modelAssetPath: asset('models/selfie_segmenter.tflite') },
         runningMode: 'IMAGE',
         outputConfidenceMasks: true,
         outputCategoryMask: false,

@@ -3,7 +3,7 @@ import QRCode from 'qrcode'
 
 export default function QRCodePanel() {
   const [dataUrl, setDataUrl] = useState<string | null>(null)
-  const url = window.location.origin
+  const url = new URL(import.meta.env.BASE_URL, window.location.origin).href
 
   useEffect(() => {
     QRCode.toDataURL(url, { width: 220, margin: 1, color: { dark: '#0ff5e0', light: '#141126' } })
