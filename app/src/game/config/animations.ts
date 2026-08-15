@@ -89,9 +89,9 @@ export const ANIMATIONS: Record<ActionName, AnimationDefinition> = {
     durationFrames: 60,
     loop: true,
     keyframes: [
-      { t: 0, pose: { root: { dy: 38 }, torso: { rot: 6 * D }, 'left-upper-leg': { rot: 75 * D }, 'right-upper-leg': { rot: -75 * D }, 'left-lower-leg': { rot: -80 * D }, 'right-lower-leg': { rot: 80 * D }, 'left-upper-arm': { rot: 20 * D }, 'right-upper-arm': { rot: -20 * D }, 'left-lower-arm': { rot: 25 * D }, 'right-lower-arm': { rot: -25 * D } } },
-      { t: 0.5, pose: { root: { dy: 40 }, torso: { rot: 6 * D }, head: { rot: 2 * D }, 'left-upper-leg': { rot: 75 * D }, 'right-upper-leg': { rot: -75 * D }, 'left-lower-leg': { rot: -80 * D }, 'right-lower-leg': { rot: 80 * D }, 'left-upper-arm': { rot: 22 * D }, 'right-upper-arm': { rot: -22 * D }, 'left-lower-arm': { rot: 27 * D }, 'right-lower-arm': { rot: -27 * D } } },
-      { t: 1, pose: { root: { dy: 38 }, torso: { rot: 6 * D }, 'left-upper-leg': { rot: 75 * D }, 'right-upper-leg': { rot: -75 * D }, 'left-lower-leg': { rot: -80 * D }, 'right-lower-leg': { rot: 80 * D }, 'left-upper-arm': { rot: 20 * D }, 'right-upper-arm': { rot: -20 * D }, 'left-lower-arm': { rot: 25 * D }, 'right-lower-arm': { rot: -25 * D } } },
+      { t: 0, pose: { root: { dy: 58 }, torso: { rot: 14 * D }, head: { rot: 10 * D }, 'left-upper-leg': { rot: -88 * D }, 'right-upper-leg': { rot: -82 * D }, 'left-lower-leg': { rot: 96 * D }, 'right-lower-leg': { rot: 92 * D }, 'left-upper-arm': { rot: -58 * D }, 'right-upper-arm': { rot: -52 * D }, 'left-lower-arm': { rot: -52 * D }, 'right-lower-arm': { rot: -56 * D } } },
+      { t: 0.5, pose: { root: { dy: 60 }, torso: { rot: 15 * D }, head: { rot: 12 * D }, 'left-upper-leg': { rot: -88 * D }, 'right-upper-leg': { rot: -82 * D }, 'left-lower-leg': { rot: 96 * D }, 'right-lower-leg': { rot: 92 * D }, 'left-upper-arm': { rot: -60 * D }, 'right-upper-arm': { rot: -54 * D }, 'left-lower-arm': { rot: -54 * D }, 'right-lower-arm': { rot: -58 * D } } },
+      { t: 1, pose: { root: { dy: 58 }, torso: { rot: 14 * D }, head: { rot: 10 * D }, 'left-upper-leg': { rot: -88 * D }, 'right-upper-leg': { rot: -82 * D }, 'left-lower-leg': { rot: 96 * D }, 'right-lower-leg': { rot: 92 * D }, 'left-upper-arm': { rot: -58 * D }, 'right-upper-arm': { rot: -52 * D }, 'left-lower-arm': { rot: -52 * D }, 'right-lower-arm': { rot: -56 * D } } },
     ],
   },
   hit: {
