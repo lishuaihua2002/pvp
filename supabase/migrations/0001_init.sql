@@ -57,16 +57,6 @@ create index fighters_owner_idx on public.fighters(owner_id);
 alter table public.fighters enable row level security;
 create policy "own fighters all" on public.fighters
   for all to authenticated using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
--- opponents may read fighters used in an active match with them
-create policy "match opponents read fighters" on public.fighters
-  for select to authenticated using (
-    exists (
-      select 1 from public.matches m
-      where m.status in ('matched','loading','ready','active')
-        and (m.player_one_id = auth.uid() or m.player_two_id = auth.uid())
-        and (m.player_one_fighter_id = fighters.id::text or m.player_two_fighter_id = fighters.id::text)
-    )
-  );
 
 create table public.fighter_parts (
   id uuid primary key default gen_random_uuid(),
@@ -88,15 +78,6 @@ create policy "own parts all" on public.fighter_parts
     exists (select 1 from public.fighters f where f.id = fighter_id and f.owner_id = auth.uid())
   ) with check (
     exists (select 1 from public.fighters f where f.id = fighter_id and f.owner_id = auth.uid())
-  );
-create policy "match opponents read parts" on public.fighter_parts
-  for select to authenticated using (
-    exists (
-      select 1 from public.matches m
-      where m.status in ('matched','loading','ready','active')
-        and (m.player_one_id = auth.uid() or m.player_two_id = auth.uid())
-        and (m.player_one_fighter_id = fighter_parts.fighter_id::text or m.player_two_fighter_id = fighter_parts.fighter_id::text)
-    )
   );
 
 -- ========== player settings ==========
@@ -154,6 +135,26 @@ create index matches_p2_idx on public.matches(player_two_id, status);
 alter table public.matches enable row level security;
 create policy "participants read matches" on public.matches
   for select to authenticated using (auth.uid() in (player_one_id, player_two_id));
+
+-- opponents may read fighters used in an active match with them
+create policy "match opponents read fighters" on public.fighters
+  for select to authenticated using (
+    exists (
+      select 1 from public.matches m
+      where m.status in ('matched','loading','ready','active')
+        and (m.player_one_id = auth.uid() or m.player_two_id = auth.uid())
+        and (m.player_one_fighter_id = fighters.id::text or m.player_two_fighter_id = fighters.id::text)
+    )
+  );
+create policy "match opponents read parts" on public.fighter_parts
+  for select to authenticated using (
+    exists (
+      select 1 from public.matches m
+      where m.status in ('matched','loading','ready','active')
+        and (m.player_one_id = auth.uid() or m.player_two_id = auth.uid())
+        and (m.player_one_fighter_id = fighter_parts.fighter_id::text or m.player_two_fighter_id = fighter_parts.fighter_id::text)
+    )
+  );
 
 create table public.match_players (
   match_id uuid not null references public.matches(id) on delete cascade,
