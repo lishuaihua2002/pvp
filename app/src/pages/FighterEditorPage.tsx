@@ -307,20 +307,33 @@ export default function FighterEditorPage() {
         ctx.restore()
         ctx.globalCompositeOperation = 'source-over'
       }
-      // feathered rounded-rect mask removes hard box corners and edge seams
-      const feather = Math.max(2, Math.min(c.width, c.height) * 0.08)
-      const radius = Math.min(c.width, c.height) * 0.25
-      const fm = document.createElement('canvas')
-      fm.width = c.width
-      fm.height = c.height
-      const fctx = fm.getContext('2d')!
-      fctx.filter = `blur(${feather}px)`
-      fctx.fillStyle = '#fff'
-      fctx.beginPath()
-      fctx.roundRect(feather, feather, c.width - feather * 2, c.height - feather * 2, radius)
-      fctx.fill()
-      ctx.globalCompositeOperation = 'destination-in'
-      ctx.drawImage(fm, 0, 0)
+      if (removeBackground && mask) {
+        // person outline comes from segmentation; only soften the joint cut lines
+        const feather = Math.max(2, c.height * 0.06)
+        const grad = ctx.createLinearGradient(0, 0, 0, c.height)
+        grad.addColorStop(0, 'rgba(255,255,255,0)')
+        grad.addColorStop(feather / c.height, 'rgba(255,255,255,1)')
+        grad.addColorStop(1 - feather / c.height, 'rgba(255,255,255,1)')
+        grad.addColorStop(1, 'rgba(255,255,255,0)')
+        ctx.globalCompositeOperation = 'destination-in'
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, c.width, c.height)
+      } else {
+        // no segmentation: feathered rounded-rect mask removes hard box corners
+        const feather = Math.max(2, Math.min(c.width, c.height) * 0.08)
+        const radius = Math.min(c.width, c.height) * 0.25
+        const fm = document.createElement('canvas')
+        fm.width = c.width
+        fm.height = c.height
+        const fctx = fm.getContext('2d')!
+        fctx.filter = `blur(${feather}px)`
+        fctx.fillStyle = '#fff'
+        fctx.beginPath()
+        fctx.roundRect(feather, feather, c.width - feather * 2, c.height - feather * 2, radius)
+        fctx.fill()
+        ctx.globalCompositeOperation = 'destination-in'
+        ctx.drawImage(fm, 0, 0)
+      }
       ctx.globalCompositeOperation = 'destination-out'
       const cos = Math.cos(-r.angle)
       const sin = Math.sin(-r.angle)

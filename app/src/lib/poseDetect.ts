@@ -143,14 +143,15 @@ export async function detectPartBoxes(photo: HTMLCanvasElement): Promise<Record<
   const shoulderImgR = p(11)
   const elbowImgL = p(14)
   const elbowImgR = p(13)
-  const wristImgL = p(16)
-  const wristImgR = p(15)
   const hipImgL = p(24)
   const hipImgR = p(23)
   const kneeImgL = p(26)
   const kneeImgR = p(25)
-  const ankleImgL = p(28)
-  const ankleImgR = p(27)
+  // finger / toe tips so hands and feet are included in the part boxes
+  const handImgL = p(20)
+  const handImgR = p(19)
+  const footImgL = p(32)
+  const footImgR = p(31)
 
   const shoulderW = Math.max(24, Math.hypot(shoulderImgL.x - shoulderImgR.x, shoulderImgL.y - shoulderImgR.y))
   const armW = shoulderW * 0.38
@@ -171,12 +172,12 @@ export async function detectPartBoxes(photo: HTMLCanvasElement): Promise<Record<
     },
     torso: seg(midShoulder, midHip, shoulderW * 1.45, 1.2),
     'left-upper-arm': seg(shoulderImgL, elbowImgL, armW),
-    'left-lower-arm': seg(elbowImgL, wristImgL, armW * 0.95, 1.35),
+    'left-lower-arm': seg(elbowImgL, handImgL, armW * 0.95, 1.25),
     'right-upper-arm': seg(shoulderImgR, elbowImgR, armW),
-    'right-lower-arm': seg(elbowImgR, wristImgR, armW * 0.95, 1.35),
+    'right-lower-arm': seg(elbowImgR, handImgR, armW * 0.95, 1.25),
     'left-upper-leg': seg(hipImgL, kneeImgL, legW),
-    'left-lower-leg': seg(kneeImgL, ankleImgL, legW * 0.9, 1.3),
+    'left-lower-leg': seg(kneeImgL, footImgL, legW * 1.1, 1.2),
     'right-upper-leg': seg(hipImgR, kneeImgR, legW),
-    'right-lower-leg': seg(kneeImgR, ankleImgR, legW * 0.9, 1.3),
+    'right-lower-leg': seg(kneeImgR, footImgR, legW * 1.1, 1.2),
   }
 }
