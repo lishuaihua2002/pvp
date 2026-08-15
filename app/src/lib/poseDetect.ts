@@ -111,6 +111,21 @@ interface Pt {
   y: number
 }
 
+/** A bone segment in photo coordinates, used to assign person pixels to parts. */
+export interface Bone {
+  ax: number
+  ay: number
+  bx: number
+  by: number
+  /** typical half-width of this limb, used to normalize distances */
+  halfW: number
+}
+
+export interface PoseResult {
+  boxes: Record<PartType, PartBox>
+  bones: Record<PartType, Bone>
+}
+
 /** Box spanning joint A (top) to joint B (bottom), rotated so its long axis follows the segment. */
 function seg(a: Pt, b: Pt, width: number, lengthPad = 1.2): PartBox {
   const cx = (a.x + b.x) / 2
@@ -125,6 +140,15 @@ function seg(a: Pt, b: Pt, width: number, lengthPad = 1.2): PartBox {
  * or null when no person is found.
  */
 export async function detectPartBoxes(photo: HTMLCanvasElement): Promise<Record<PartType, PartBox> | null> {
+  const pose = await detectPose(photo)
+  return pose ? pose.boxes : null
+}
+
+/**
+ * Detects a person and returns oriented part boxes plus the underlying bone
+ * segments (photo coordinates), or null when no person is found.
+ */
+export async function detectPose(photo: HTMLCanvasElement): Promise<PoseResult | null> {
   const landmarker = await getLandmarker()
   const result = landmarker.detect(photo)
   const lm = result.landmarks[0]
@@ -162,7 +186,7 @@ export async function detectPartBoxes(photo: HTMLCanvasElement): Promise<Record<
   const headW = shoulderW * 0.95
   const headH = headW * 1.25
 
-  return {
+  const boxes: Record<PartType, PartBox> = {
     head: {
       x: headCenter.x - headW / 2,
       y: headCenter.y - headH / 2,
@@ -180,4 +204,33 @@ export async function detectPartBoxes(photo: HTMLCanvasElement): Promise<Record<
     'right-upper-leg': seg(hipImgR, kneeImgR, legW),
     'right-lower-leg': seg(kneeImgR, footImgR, legW * 1.1, 1.2),
   }
+
+  const bone = (a: Pt, b: Pt, halfW: number): Bone => ({ ax: a.x, ay: a.y, bx: b.x, by: b.y, halfW })
+  const crown: Pt = { x: headCenter.x, y: headCenter.y - headH * 0.4 }
+  const bones: Record<PartType, Bone> = {
+    head: bone(crown, midShoulder, headW * 0.55),
+    torso: bone(midShoulder, midHip, shoulderW * 0.72),
+    'left-upper-arm': bone(shoulderImgL, elbowImgL, armW / 2),
+    'left-lower-arm': bone(elbowImgL, handImgL, armW / 2),
+    'right-upper-arm': bone(shoulderImgR, elbowImgR, armW / 2),
+    'right-lower-arm': bone(elbowImgR, handImgR, armW / 2),
+    'left-upper-leg': bone(hipImgL, kneeImgL, legW / 2),
+    'left-lower-leg': bone(kneeImgL, footImgL, legW / 2),
+    'right-upper-leg': bone(hipImgR, kneeImgR, legW / 2),
+    'right-lower-leg': bone(kneeImgR, footImgR, legW / 2),
+  }
+
+  return { boxes, bones }
+}
+
+/** Normalized distance from a photo point to a bone (distance to segment / limb half-width). */
+export function boneDistance(x: number, y: number, b: Bone): number {
+  const dx = b.bx - b.ax
+  const dy = b.by - b.ay
+  const lenSq = dx * dx + dy * dy
+  let t = lenSq > 0 ? ((x - b.ax) * dx + (y - b.ay) * dy) / lenSq : 0
+  t = Math.max(0, Math.min(1, t))
+  const px = b.ax + t * dx
+  const py = b.ay + t * dy
+  return Math.hypot(x - px, y - py) / Math.max(1, b.halfW)
 }

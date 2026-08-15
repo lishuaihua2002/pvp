@@ -7,7 +7,7 @@ import { saveLocalFighter } from '../lib/localFighters'
 import { ALL_PART_TYPES, type PartType, type FighterManifest, type FighterPart } from '../types/fighter'
 import PhaserArena from '../components/PhaserArena'
 import { initAudio, playSfx } from '../game/audio/sfx'
-import { detectPartBoxes, segmentPerson } from '../lib/poseDetect'
+import { boneDistance, detectPose, segmentPerson, type Bone } from '../lib/poseDetect'
 
 const PART_LABELS: Record<PartType, string> = {
   head: 'Head',
@@ -100,6 +100,7 @@ export default function FighterEditorPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [photo, setPhoto] = useState<HTMLCanvasElement | null>(null)
   const [mask, setMask] = useState<HTMLCanvasElement | null>(null)
+  const [bones, setBones] = useState<Record<PartType, Bone> | null>(null)
   const [removeBackground, setRemoveBackground] = useState(true)
   const [rects, setRects] = useState<Record<PartType, Rect> | null>(null)
   const [selectedPart, setSelectedPart] = useState<PartType>('head')
@@ -134,6 +135,7 @@ export default function FighterEditorPage() {
       setUndoStack([])
       setRedoStack([])
       setMask(null)
+      setBones(null)
       // best-effort: segment the person in the background so parts get smooth cutouts
       segmentPerson(canvas).then(setMask, () => setMask(null))
     } catch (e) {
@@ -307,7 +309,37 @@ export default function FighterEditorPage() {
         ctx.restore()
         ctx.globalCompositeOperation = 'source-over'
       }
-      if (removeBackground && mask) {
+      if (removeBackground && mask && bones) {
+        // skeleton-guided cut: each person pixel belongs to its nearest bone,
+        // with a soft blend band so joints overlap slightly instead of leaving gaps
+        const img = ctx.getImageData(0, 0, c.width, c.height)
+        const data = img.data
+        const cosA = Math.cos(r.angle)
+        const sinA = Math.sin(r.angle)
+        const boneList = ALL_PART_TYPES.map((t) => bones[t])
+        const myBone = bones[pt]
+        for (let py = 0; py < c.height; py++) {
+          for (let px = 0; px < c.width; px++) {
+            const o = (py * c.width + px) * 4 + 3
+            if (data[o] === 0) continue
+            const lx = px - c.width / 2
+            const ly = py - c.height / 2
+            const X = cx + lx * cosA - ly * sinA
+            const Y = cy + lx * sinA + ly * cosA
+            let best = Infinity
+            for (const b of boneList) {
+              const d = boneDistance(X, Y, b)
+              if (d < best) best = d
+            }
+            const mine = boneDistance(X, Y, myBone)
+            const band = best * 0.5 + 0.35
+            const t = (mine - best) / band
+            if (t > 1) data[o] = 0
+            else if (t > 0) data[o] = Math.round(data[o] * (1 - t))
+          }
+        }
+        ctx.putImageData(img, 0, 0)
+      } else if (removeBackground && mask) {
         // person outline comes from segmentation; only soften the joint cut lines
         const feather = Math.max(2, c.height * 0.06)
         const grad = ctx.createLinearGradient(0, 0, 0, c.height)
@@ -365,12 +397,13 @@ export default function FighterEditorPage() {
     setError(null)
     setDetecting(true)
     try {
-      const boxes = await detectPartBoxes(photo)
-      if (!boxes) {
+      const pose = await detectPose(photo)
+      if (!pose) {
         setError('No person detected in the photo. Try a clearer full-body shot, or adjust the boxes manually.')
         return
       }
-      setRects(boxes)
+      setRects(pose.boxes)
+      setBones(pose.bones)
       setUndoStack([])
       setRedoStack([])
       playSfx('ready')
