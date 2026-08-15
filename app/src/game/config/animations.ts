@@ -27,6 +27,22 @@ export interface AnimationDefinition {
 
 const D = Math.PI / 180
 
+/** deep squat: low enough that standing punches pass overhead */
+const DEEP_CROUCH_DY = 92
+const CROUCH: Pose = {
+  root: { dy: DEEP_CROUCH_DY },
+  torso: { rot: 18 * D },
+  head: { rot: 12 * D },
+  'left-upper-leg': { rot: -104 * D },
+  'right-upper-leg': { rot: -96 * D },
+  'left-lower-leg': { rot: 116 * D },
+  'right-lower-leg': { rot: 110 * D },
+  'left-upper-arm': { rot: -62 * D },
+  'right-upper-arm': { rot: -56 * D },
+  'left-lower-arm': { rot: -56 * D },
+  'right-lower-arm': { rot: -60 * D },
+}
+
 export const ANIMATIONS: Record<ActionName, AnimationDefinition> = {
   idle: {
     name: 'idle',
@@ -89,9 +105,44 @@ export const ANIMATIONS: Record<ActionName, AnimationDefinition> = {
     durationFrames: 60,
     loop: true,
     keyframes: [
-      { t: 0, pose: { root: { dy: 58 }, torso: { rot: 14 * D }, head: { rot: 10 * D }, 'left-upper-leg': { rot: -88 * D }, 'right-upper-leg': { rot: -82 * D }, 'left-lower-leg': { rot: 96 * D }, 'right-lower-leg': { rot: 92 * D }, 'left-upper-arm': { rot: -58 * D }, 'right-upper-arm': { rot: -52 * D }, 'left-lower-arm': { rot: -52 * D }, 'right-lower-arm': { rot: -56 * D } } },
-      { t: 0.5, pose: { root: { dy: 60 }, torso: { rot: 15 * D }, head: { rot: 12 * D }, 'left-upper-leg': { rot: -88 * D }, 'right-upper-leg': { rot: -82 * D }, 'left-lower-leg': { rot: 96 * D }, 'right-lower-leg': { rot: 92 * D }, 'left-upper-arm': { rot: -60 * D }, 'right-upper-arm': { rot: -54 * D }, 'left-lower-arm': { rot: -54 * D }, 'right-lower-arm': { rot: -58 * D } } },
-      { t: 1, pose: { root: { dy: 58 }, torso: { rot: 14 * D }, head: { rot: 10 * D }, 'left-upper-leg': { rot: -88 * D }, 'right-upper-leg': { rot: -82 * D }, 'left-lower-leg': { rot: 96 * D }, 'right-lower-leg': { rot: 92 * D }, 'left-upper-arm': { rot: -58 * D }, 'right-upper-arm': { rot: -52 * D }, 'left-lower-arm': { rot: -52 * D }, 'right-lower-arm': { rot: -56 * D } } },
+      { t: 0, pose: CROUCH },
+      { t: 0.5, pose: { ...CROUCH, root: { dy: 94 } } },
+      { t: 1, pose: CROUCH },
+    ],
+  },
+  sweep: {
+    name: 'sweep',
+    durationFrames: 30,
+    loop: false,
+    activeFrames: [7, 17],
+    keyframes: [
+      { t: 0, pose: CROUCH },
+      { t: 0.3, pose: { ...CROUCH, torso: { rot: 26 * D }, 'right-upper-leg': { rot: -90 * D }, 'right-lower-leg': { rot: 0 }, 'left-upper-arm': { rot: -20 * D }, 'right-upper-arm': { rot: 30 * D } } },
+      { t: 0.6, pose: { ...CROUCH, torso: { rot: 26 * D }, 'right-upper-leg': { rot: -92 * D }, 'right-lower-leg': { rot: 4 * D } } },
+      { t: 1, pose: CROUCH },
+    ],
+  },
+  uppercut: {
+    name: 'uppercut',
+    durationFrames: 28,
+    loop: false,
+    activeFrames: [5, 18],
+    keyframes: [
+      { t: 0, pose: { torso: { rot: 10 * D }, 'right-upper-arm': { rot: -10 * D }, 'right-lower-arm': { rot: -70 * D }, 'left-upper-leg': { rot: 20 * D }, 'right-upper-leg': { rot: -14 * D } } },
+      { t: 0.35, pose: { torso: { rot: -16 * D }, head: { rot: -10 * D }, 'right-upper-arm': { rot: -155 * D }, 'right-lower-arm': { rot: -10 * D }, 'left-upper-arm': { rot: 30 * D }, 'left-upper-leg': { rot: 34 * D }, 'left-lower-leg': { rot: -40 * D }, 'right-upper-leg': { rot: -20 * D } } },
+      { t: 0.7, pose: { torso: { rot: -14 * D }, head: { rot: -8 * D }, 'right-upper-arm': { rot: -168 * D }, 'right-lower-arm': { rot: 0 }, 'left-upper-arm': { rot: 26 * D }, 'left-upper-leg': { rot: 30 * D }, 'left-lower-leg': { rot: -34 * D } } },
+      { t: 1, pose: { torso: { rot: -4 * D }, 'right-upper-arm': { rot: -40 * D }, 'left-upper-leg': { rot: 18 * D }, 'right-upper-leg': { rot: -14 * D } } },
+    ],
+  },
+  divekick: {
+    name: 'divekick',
+    durationFrames: 40,
+    loop: false,
+    activeFrames: [5, 34],
+    keyframes: [
+      { t: 0, pose: { torso: { rot: -10 * D }, 'right-upper-leg': { rot: -30 * D }, 'left-upper-leg': { rot: 30 * D }, 'left-lower-leg': { rot: -50 * D } } },
+      { t: 0.25, pose: { torso: { rot: -26 * D }, head: { rot: -12 * D }, 'right-upper-leg': { rot: -48 * D }, 'right-lower-leg': { rot: 4 * D }, 'left-upper-leg': { rot: -34 * D }, 'left-lower-leg': { rot: 30 * D }, 'left-upper-arm': { rot: 55 * D }, 'right-upper-arm': { rot: 40 * D } } },
+      { t: 1, pose: { torso: { rot: -26 * D }, head: { rot: -12 * D }, 'right-upper-leg': { rot: -48 * D }, 'right-lower-leg': { rot: 4 * D }, 'left-upper-leg': { rot: -34 * D }, 'left-lower-leg': { rot: 30 * D }, 'left-upper-arm': { rot: 55 * D }, 'right-upper-arm': { rot: 40 * D } } },
     ],
   },
   hit: {

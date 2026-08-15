@@ -4,6 +4,12 @@ export type ActionName =
   | 'jump'
   | 'punch'
   | 'kick'
+  /** low sweeping kick from the crouch */
+  | 'sweep'
+  /** rising punch done in the air */
+  | 'uppercut'
+  /** diagonal downward kick done in the air */
+  | 'divekick'
   | 'sit'
   | 'hit'
   | 'knockdown'

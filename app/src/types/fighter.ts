@@ -76,6 +76,15 @@ export interface ColliderDefinition {
   legsHurtbox: { x: number; y: number; w: number; h: number }
   punchHitbox: { reach: number; y: number; w: number; h: number }
   kickHitbox: { reach: number; y: number; w: number; h: number }
+  /** low sweep from the crouch */
+  sweepHitbox: { reach: number; y: number; w: number; h: number }
+  /** rising air punch */
+  uppercutHitbox: { reach: number; y: number; w: number; h: number }
+  /** diagonal downward air kick */
+  divekickHitbox: { reach: number; y: number; w: number; h: number }
+  /** hurtboxes while crouching: low enough that standing punches whiff */
+  crouchHeadHurtbox: { x: number; y: number; w: number; h: number }
+  crouchBodyHurtbox: { x: number; y: number; w: number; h: number }
 }
 
 export const DEFAULT_COLLIDERS: ColliderDefinition = {
@@ -86,4 +95,9 @@ export const DEFAULT_COLLIDERS: ColliderDefinition = {
   legsHurtbox: { x: 0, y: -35, w: 55, h: 70 },
   punchHitbox: { reach: 70, y: -105, w: 55, h: 35 },
   kickHitbox: { reach: 95, y: -30, w: 75, h: 35 },
+  sweepHitbox: { reach: 100, y: -16, w: 85, h: 30 },
+  uppercutHitbox: { reach: 48, y: -172, w: 50, h: 80 },
+  divekickHitbox: { reach: 78, y: 4, w: 70, h: 60 },
+  crouchHeadHurtbox: { x: 0, y: -56, w: 46, h: 36 },
+  crouchBodyHurtbox: { x: 0, y: -22, w: 60, h: 44 },
 }

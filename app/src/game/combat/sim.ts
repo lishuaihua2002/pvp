@@ -43,7 +43,13 @@ export function createPlayerState(playerId: string, side: 'left' | 'right'): Pla
   }
 }
 
-const UNCANCELLABLE: ActionName[] = ['punch', 'kick', 'hit', 'knockdown', 'getup', 'entrance']
+/** attack moves; the ground/air/crouch variants are picked in stepPlayer */
+const ATTACKS: ActionName[] = ['punch', 'kick', 'sweep', 'uppercut', 'divekick']
+const UNCANCELLABLE: ActionName[] = [...ATTACKS, 'hit', 'knockdown', 'getup', 'entrance']
+
+function isAttack(action: ActionName): boolean {
+  return ATTACKS.includes(action)
+}
 
 function setAction(p: PlayerState, action: ActionName) {
   if (p.action !== action) {
@@ -92,6 +98,12 @@ function rectsOverlap(
 
 function hurtboxes(p: PlayerState) {
   const c = DEFAULT_COLLIDERS
+  if (p.action === 'sit' || p.action === 'sweep') {
+    return [
+      { x: p.x + c.crouchHeadHurtbox.x, y: p.y + c.crouchHeadHurtbox.y, w: c.crouchHeadHurtbox.w, h: c.crouchHeadHurtbox.h },
+      { x: p.x + c.crouchBodyHurtbox.x, y: p.y + c.crouchBodyHurtbox.y, w: c.crouchBodyHurtbox.w, h: c.crouchBodyHurtbox.h },
+    ]
+  }
   return [
     { x: p.x + c.headHurtbox.x, y: p.y + c.headHurtbox.y, w: c.headHurtbox.w, h: c.headHurtbox.h },
     { x: p.x + c.torsoHurtbox.x, y: p.y + c.torsoHurtbox.y, w: c.torsoHurtbox.w, h: c.torsoHurtbox.h },
@@ -100,19 +112,26 @@ function hurtboxes(p: PlayerState) {
 }
 
 export function activeHitbox(p: PlayerState): { x: number; y: number; w: number; h: number; kind: 'punch' | 'kick' } | null {
-  if (p.action !== 'punch' && p.action !== 'kick') return null
+  if (!isAttack(p.action)) return null
   const anim = ANIMATIONS[p.action]
   if (!anim.activeFrames) return null
   const [from, to] = anim.activeFrames
   if (p.actionFrame < from || p.actionFrame > to) return null
   const c = DEFAULT_COLLIDERS
-  const def = p.action === 'punch' ? c.punchHitbox : c.kickHitbox
+  const boxes: Record<string, { reach: number; y: number; w: number; h: number }> = {
+    punch: c.punchHitbox,
+    kick: c.kickHitbox,
+    sweep: c.sweepHitbox,
+    uppercut: c.uppercutHitbox,
+    divekick: c.divekickHitbox,
+  }
+  const def = boxes[p.action]
   return {
     x: p.x + p.facing * def.reach,
     y: p.y + def.y,
     w: def.w,
     h: def.h,
-    kind: p.action,
+    kind: p.action === 'punch' || p.action === 'uppercut' ? 'punch' : 'kick',
   }
 }
 
@@ -131,7 +150,7 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
   }
   if (p.action === 'getup' && actionDone(p)) setAction(p, 'idle')
   if (p.action === 'hit' && actionDone(p)) setAction(p, 'idle')
-  if ((p.action === 'punch' || p.action === 'kick') && actionDone(p)) setAction(p, 'idle')
+  if (isAttack(p.action) && actionDone(p)) setAction(p, 'idle')
   if (p.action === 'entrance' && actionDone(p)) setAction(p, 'idle')
 
   const locked =
@@ -144,12 +163,24 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
   if (!locked) {
     // attacks (allowed both on the ground and in the air)
     if (input.punch && canAct(p)) {
-      setAction(p, 'punch')
+      // in the air a punch becomes a rising uppercut
+      setAction(p, p.onGround ? 'punch' : 'uppercut')
+      if (!p.onGround) p.vy = Math.min(p.vy, -6)
     } else if (input.kick && canAct(p)) {
-      setAction(p, 'kick')
+      if (!p.onGround) {
+        // air kick dives diagonally down and forward
+        setAction(p, 'divekick')
+        p.vx = p.facing * WALK_SPEED * 1.9
+        p.vy = Math.max(p.vy, 9)
+      } else if (input.sit) {
+        setAction(p, 'sweep')
+        p.vx = 0
+      } else {
+        setAction(p, 'kick')
+      }
     }
 
-    const attacking = p.action === 'punch' || p.action === 'kick'
+    const attacking = isAttack(p.action)
 
     // movement
     if (!attacking) {
@@ -192,7 +223,7 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
     p.y = GROUND_Y
     p.vy = 0
     p.onGround = true
-    if (wasAirborne && (p.action === 'jump' || ((p.action === 'punch' || p.action === 'kick') && actionDone(p)))) {
+    if (wasAirborne && (p.action === 'jump' || p.action === 'divekick' || (isAttack(p.action) && actionDone(p)))) {
       setAction(p, 'idle')
     }
   }
@@ -210,10 +241,9 @@ export function stepSim(s: SimState, inputA: CombatInput, inputB: CombatInput): 
   // track attack instances for one-hit-per-move
   for (let i = 0; i < 2; i++) {
     const p = s.players[i]
-    const wasAttack = p.action === 'punch' || p.action === 'kick'
+    const wasAttack = isAttack(p.action)
     stepPlayer(p, i === 0 ? inputA : inputB)
-    const isAttack = p.action === 'punch' || p.action === 'kick'
-    if (isAttack && (!wasAttack || p.actionFrame === 1)) {
+    if (isAttack(p.action) && (!wasAttack || p.actionFrame === 1)) {
       s.attackInstance[i]++
       s.attackLanded[i] = false
     }

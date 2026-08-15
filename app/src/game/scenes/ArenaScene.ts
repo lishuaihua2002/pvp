@@ -440,8 +440,8 @@ export class ArenaScene extends Phaser.Scene {
     this.sim.players.forEach((p, i) => {
       const prev = this.prevActions[p.playerId]
       if (p.action !== prev) {
-        if (p.action === 'punch') playSfx('punch_whiff')
-        if (p.action === 'kick') playSfx('kick_whiff')
+        if (p.action === 'punch' || p.action === 'uppercut') playSfx('punch_whiff')
+        if (p.action === 'kick' || p.action === 'sweep' || p.action === 'divekick') playSfx('kick_whiff')
         if (p.action === 'jump') playSfx('jump')
         if (p.action === 'knockdown') playSfx('knockdown')
         this.prevActions[p.playerId] = p.action

@@ -63,27 +63,29 @@ describe('combat sim', () => {
     expect(s.players[0].y).toBe(GROUND_Y)
   })
 
-  it('attacks can be thrown while airborne and land back to idle', () => {
+  it('an air punch becomes a rising uppercut and lands back to idle', () => {
     const s = createSimState('a', 'b')
     stepSim(s, input(0, { jump: true }), idle(0))
     run(s, 3)
     expect(s.players[0].y).toBeLessThan(GROUND_Y)
     stepSim(s, input(s.frame, { punch: true }), idle(s.frame))
-    expect(s.players[0].action).toBe('punch')
+    expect(s.players[0].action).toBe('uppercut')
+    expect(s.players[0].vy).toBeLessThan(0)
     expect(s.players[0].y).toBeLessThan(GROUND_Y)
     run(s, SIM_FPS * 3)
     expect(s.players[0].y).toBe(GROUND_Y)
     expect(s.players[0].action).toBe('idle')
   })
 
-  it('air kick in range produces a hit event', () => {
+  it('air kick dives down and forward, and hits in range', () => {
     const s = createSimState('a', 'b')
     run(s, 120, { right: true }, { left: true })
-    s.players[0].y = GROUND_Y - 8
+    s.players[0].y = GROUND_Y - 130
     s.players[0].vy = -2
     s.players[0].onGround = false
     stepSim(s, input(s.frame, { kick: true }), idle(s.frame))
-    expect(s.players[0].action).toBe('kick')
+    expect(s.players[0].action).toBe('divekick')
+    expect(s.players[0].vy).toBeGreaterThan(0)
     expect(s.players[0].onGround).toBe(false)
     const { events } = run(s, 30, { kick: true })
     expect(events.filter((e) => e.kind === 'kick').length).toBeGreaterThan(0)
@@ -122,6 +124,24 @@ describe('combat sim', () => {
     }
     expect(sawKnockdown).toBe(true)
     expect(s.players[1].impact).toBeLessThan(KNOCKDOWN_THRESHOLD)
+  })
+
+  it('a standing punch whiffs over a crouching opponent', () => {
+    const s = createSimState('a', 'b')
+    run(s, 120, { right: true }, { left: true, sit: true })
+    const { events } = run(s, 40, { punch: true }, { sit: true })
+    expect(events.length).toBe(0)
+    expect(s.players[1].action).toBe('sit')
+  })
+
+  it('kick while crouching sweeps and hits a standing opponent low', () => {
+    const s = createSimState('a', 'b')
+    run(s, 120, { right: true }, { left: true })
+    stepSim(s, input(s.frame, { sit: true }), idle(s.frame))
+    stepSim(s, input(s.frame, { sit: true, kick: true }), idle(s.frame))
+    expect(s.players[0].action).toBe('sweep')
+    const { events } = run(s, 30, { sit: true }, {})
+    expect(events.filter((e) => e.kind === 'kick').length).toBeGreaterThan(0)
   })
 
   it('impact decays over time', () => {
