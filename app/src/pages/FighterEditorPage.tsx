@@ -4,7 +4,13 @@ import { useAuthStore } from '../stores/authStore'
 import { saveFighter } from '../lib/supabase/fighters'
 import { supabaseConfigured } from '../lib/supabase/client'
 import { saveLocalFighter } from '../lib/localFighters'
-import { ALL_PART_TYPES, type PartType, type FighterManifest, type FighterPart } from '../types/fighter'
+import {
+  ALL_PART_TYPES,
+  type PartType,
+  type FighterManifest,
+  type FighterPart,
+  type SkinnedBody,
+} from '../types/fighter'
 import PhaserArena from '../components/PhaserArena'
 import { initAudio, playSfx } from '../game/audio/sfx'
 import {
@@ -413,6 +419,71 @@ export default function FighterEditorPage() {
     })
   }
 
+  /**
+   * Whole-person export: one background-removed image plus the skeleton joints,
+   * rendered in combat via mesh skinning (no per-part cutting).
+   */
+  const buildBody = (): SkinnedBody | null => {
+    if (!photo || !joints) return null
+    const full = document.createElement('canvas')
+    full.width = photo.width
+    full.height = photo.height
+    const ctx = full.getContext('2d')!
+    ctx.drawImage(photo, 0, 0)
+    if (removeBackground && mask) {
+      ctx.globalCompositeOperation = 'destination-in'
+      ctx.drawImage(mask, 0, 0)
+      ctx.globalCompositeOperation = 'source-over'
+    }
+    ctx.globalCompositeOperation = 'destination-out'
+    for (const s of strokes) {
+      for (const p of s.points) {
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, s.radius, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over'
+    // crop to the opaque bounding box (plus padding) so the texture stays small
+    const img = ctx.getImageData(0, 0, full.width, full.height).data
+    let minX = full.width
+    let minY = full.height
+    let maxX = -1
+    let maxY = -1
+    for (let y = 0; y < full.height; y++) {
+      for (let x = 0; x < full.width; x++) {
+        if (img[(y * full.width + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x
+          if (x > maxX) maxX = x
+          if (y < minY) minY = y
+          if (y > maxY) maxY = y
+        }
+      }
+    }
+    if (maxX < 0) {
+      minX = 0
+      minY = 0
+      maxX = full.width - 1
+      maxY = full.height - 1
+    }
+    const pad = Math.round(Math.max(full.width, full.height) * 0.02)
+    minX = Math.max(0, minX - pad)
+    minY = Math.max(0, minY - pad)
+    maxX = Math.min(full.width - 1, maxX + pad)
+    maxY = Math.min(full.height - 1, maxY + pad)
+    const w = maxX - minX + 1
+    const h = maxY - minY + 1
+    const crop = document.createElement('canvas')
+    crop.width = w
+    crop.height = h
+    crop.getContext('2d')!.drawImage(full, minX, minY, w, h, 0, 0, w, h)
+    const shifted: Record<string, Pt> = {}
+    for (const id of ALL_JOINTS) {
+      shifted[id] = { x: joints[id].x - minX, y: joints[id].y - minY }
+    }
+    return { url: crop.toDataURL('image/png'), width: w, height: h, joints: shifted }
+  }
+
   const autoDetect = async () => {
     if (!photo) return
     setError(null)
@@ -437,13 +508,14 @@ export default function FighterEditorPage() {
   const preview = () => {
     initAudio()
     playSfx('click')
-    const parts = buildParts()
-    if (!parts.length) return
+    const body = buildBody()
+    if (!body) return
     setPreviewManifest({
-      id: 'editor-preview',
+      id: `editor-preview-${Date.now()}`,
       ownerId: userId ?? 'me',
       name: name || 'My Fighter',
-      parts: parts.map((p) => p.part),
+      parts: [],
+      body,
       scale: 1,
     })
   }
@@ -457,20 +529,23 @@ export default function FighterEditorPage() {
     }
     setSaving(true)
     try {
-      const built = buildParts()
       if (!supabaseConfigured || !userId) {
-        // local mode: store in the browser
+        // local mode: store the whole-person skinned body in the browser
+        const body = buildBody()
+        if (!body) throw new Error('Nothing to save yet')
         saveLocalFighter({
           id: `local-${Date.now()}`,
           ownerId: 'local',
           name: name.trim(),
-          parts: built.map(({ part }) => part),
+          parts: [],
+          body,
           scale: 1,
         })
         playSfx('ready')
         navigate('/local-test')
         return
       }
+      const built = buildParts()
       const partBlobs = await Promise.all(
         built.map(async ({ part, canvas }) => ({
           partType: part.partType,

@@ -43,6 +43,16 @@ export interface FighterPart {
   sortOrder: number
 }
 
+/** Whole-person image with skeleton joints; rendered via mesh skinning instead of part assembly. */
+export interface SkinnedBody {
+  /** background-removed full-person image (data URL or storage URL) */
+  url: string
+  width: number
+  height: number
+  /** skeleton joints in image pixel coordinates, keyed by joint id (see poseDetect JointId) */
+  joints: Record<string, { x: number; y: number }>
+}
+
 export interface FighterManifest {
   id: string
   ownerId: string
@@ -50,6 +60,8 @@ export interface FighterManifest {
   description?: string
   thumbnailUrl?: string
   parts: FighterPart[]
+  /** whole-person skinned body; when present it replaces part-based rendering */
+  body?: SkinnedBody
   /** overall render scale so fighters are roughly same height */
   scale: number
   /** whether this is a builtin preset fighter */
