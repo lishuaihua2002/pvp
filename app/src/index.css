@@ -12,7 +12,8 @@
 html,
 body,
 #root {
-  height: 100%;
+  /* dvh keeps the layout inside the visible area on mobile browsers with dynamic toolbars */
+  height: 100dvh;
   margin: 0;
   background: var(--color-arcade-bg);
   color: #f0eeff;

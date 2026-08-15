@@ -38,5 +38,6 @@ export default function PhaserArena({ config, onSceneReady }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return <div ref={hostRef} className="h-full w-full" />
+  // overflow-hidden keeps Phaser's centering margin on the canvas from collapsing out and shifting the page
+  return <div ref={hostRef} className="h-full w-full overflow-hidden" />
 }
