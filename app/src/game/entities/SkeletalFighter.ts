@@ -337,6 +337,8 @@ export class SkeletalFighter {
         const img = new Image()
         img.crossOrigin = 'anonymous'
         img.onload = () => {
+          // the scene may have been torn down while the image was loading
+          if (!scene.sys?.game || scene.sys.settings.status === Phaser.Scenes.DESTROYED) return resolve()
           scene.textures.addImage(key, img)
           resolve()
         }

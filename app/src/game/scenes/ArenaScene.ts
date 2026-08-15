@@ -197,10 +197,24 @@ export class ArenaScene extends Phaser.Scene {
     this.fighters.set(pr.playerId, fr)
 
     if (this.cfg.mode === 'online' && this.cfg.channel) {
-      this.cfg.channel.send('assets_loaded', {})
       this.phase = 'loading'
       this.bannerText.setText('Waiting for opponent...').setFontSize(44)
       this.selfLoaded = true
+      // broadcast has no replay, so keep announcing until the peer acknowledges
+      this.readyAnnounceTimer = this.time.addEvent({
+        delay: 700,
+        loop: true,
+        startAt: 700,
+        callback: () => {
+          if (this.remoteLoaded) {
+            this.readyAnnounceTimer?.remove()
+            this.readyAnnounceTimer = undefined
+            return
+          }
+          this.cfg.channel?.send('assets_loaded', {})
+        },
+      })
+      this.cfg.channel.send('assets_loaded', {})
       this.tryStartCountdown()
     } else {
       this.beginEntrance()
@@ -210,15 +224,17 @@ export class ArenaScene extends Phaser.Scene {
   private selfLoaded = false
   private remoteLoaded = false
   private countdownStarted = false
+  private readyAnnounceTimer?: Phaser.Time.TimerEvent
 
   private tryStartCountdown() {
     if (this.countdownStarted) return
     if (!(this.selfLoaded && this.remoteLoaded)) return
     this.countdownStarted = true
-    if (this.cfg.isHost) {
-      this.cfg.channel?.send('countdown_start', { startAt: Date.now() + 500 })
-      this.time.delayedCall(500, () => this.beginEntrance())
-    }
+    this.readyAnnounceTimer?.remove()
+    this.readyAnnounceTimer = undefined
+    if (this.cfg.isHost) this.cfg.channel?.send('countdown_start', { startAt: Date.now() + 500 })
+    // both sides start locally: the countdown message may be lost on a fresh channel
+    this.time.delayedCall(500, () => this.beginEntrance())
   }
 
   private setupNetwork() {
@@ -241,7 +257,10 @@ export class ArenaScene extends Phaser.Scene {
         this.opponentGone = false
       },
       onAssetsLoaded: () => {
+        // the peer may have announced before we subscribed; answer once
+        const firstTime = !this.remoteLoaded
         this.remoteLoaded = true
+        if (firstTime && this.selfLoaded) ch.send('assets_loaded', {})
         this.tryStartCountdown()
       },
       onCountdownStart: (startAt: number) => {
