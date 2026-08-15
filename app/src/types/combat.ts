@@ -10,6 +10,12 @@ export type ActionName =
   | 'uppercut'
   /** diagonal downward kick done in the air */
   | 'divekick'
+  /** low punch thrown from the crouch */
+  | 'lowpunch'
+  /** super move: locks on and charges at the opponent */
+  | 'charge'
+  /** launched by a super charge, bouncing along the ground */
+  | 'bounce'
   | 'sit'
   | 'hit'
   | 'knockdown'
@@ -26,6 +32,8 @@ export interface CombatInput {
   kick: boolean
   /** held: crouch/sit while on the ground */
   sit: boolean
+  /** super move, only usable with a full energy bar */
+  special: boolean
 }
 
 export interface PlayerState {
@@ -42,6 +50,12 @@ export interface PlayerState {
   impact: number
   lastHitId: number
   invulnFrames: number
+  /** jumps used since leaving the ground (double jump allows 2) */
+  jumpsUsed: number
+  /** super meter, 0..ENERGY_MAX; filled by knocking the opponent down */
+  energy: number
+  /** remaining ground bounces while launched by a super charge */
+  bounces: number
 }
 
 export type MatchmakingStatus =

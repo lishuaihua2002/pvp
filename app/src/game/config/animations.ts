@@ -145,6 +145,39 @@ export const ANIMATIONS: Record<ActionName, AnimationDefinition> = {
       { t: 1, pose: { torso: { rot: -26 * D }, head: { rot: -12 * D }, 'right-upper-leg': { rot: -48 * D }, 'right-lower-leg': { rot: 4 * D }, 'left-upper-leg': { rot: -34 * D }, 'left-lower-leg': { rot: 30 * D }, 'left-upper-arm': { rot: 55 * D }, 'right-upper-arm': { rot: 40 * D } } },
     ],
   },
+  lowpunch: {
+    name: 'lowpunch',
+    durationFrames: 24,
+    loop: false,
+    activeFrames: [6, 14],
+    cancelFrame: 20,
+    keyframes: [
+      { t: 0, pose: CROUCH },
+      { t: 0.3, pose: { ...CROUCH, torso: { rot: 22 * D }, 'right-upper-arm': { rot: -100 * D }, 'right-lower-arm': { rot: 4 * D }, 'left-upper-arm': { rot: -30 * D }, 'left-lower-arm': { rot: -40 * D } } },
+      { t: 0.6, pose: { ...CROUCH, torso: { rot: 22 * D }, 'right-upper-arm': { rot: -102 * D }, 'right-lower-arm': { rot: 0 } } },
+      { t: 1, pose: CROUCH },
+    ],
+  },
+  charge: {
+    name: 'charge',
+    durationFrames: 20,
+    loop: true,
+    keyframes: [
+      { t: 0, pose: { root: { dy: -4 }, torso: { rot: 30 * D }, head: { rot: 20 * D }, 'left-upper-arm': { rot: -120 * D }, 'right-upper-arm': { rot: -130 * D }, 'left-lower-arm': { rot: -20 * D }, 'right-lower-arm': { rot: -20 * D }, 'left-upper-leg': { rot: -40 * D }, 'right-upper-leg': { rot: 30 * D }, 'left-lower-leg': { rot: 20 * D }, 'right-lower-leg': { rot: -50 * D } } },
+      { t: 0.5, pose: { root: { dy: -8 }, torso: { rot: 32 * D }, head: { rot: 22 * D }, 'left-upper-arm': { rot: -130 * D }, 'right-upper-arm': { rot: -120 * D }, 'left-lower-arm': { rot: -20 * D }, 'right-lower-arm': { rot: -20 * D }, 'left-upper-leg': { rot: 30 * D }, 'right-upper-leg': { rot: -40 * D }, 'left-lower-leg': { rot: -50 * D }, 'right-lower-leg': { rot: 20 * D } } },
+      { t: 1, pose: { root: { dy: -4 }, torso: { rot: 30 * D }, head: { rot: 20 * D }, 'left-upper-arm': { rot: -120 * D }, 'right-upper-arm': { rot: -130 * D }, 'left-lower-arm': { rot: -20 * D }, 'right-lower-arm': { rot: -20 * D }, 'left-upper-leg': { rot: -40 * D }, 'right-upper-leg': { rot: 30 * D }, 'left-lower-leg': { rot: 20 * D }, 'right-lower-leg': { rot: -50 * D } } },
+    ],
+  },
+  bounce: {
+    name: 'bounce',
+    durationFrames: 40,
+    loop: true,
+    keyframes: [
+      { t: 0, pose: { root: { rot: -50 * D, dx: -10, dy: -16 }, 'left-upper-arm': { rot: 40 * D }, 'right-upper-arm': { rot: -30 * D }, 'left-upper-leg': { rot: 30 * D }, 'right-upper-leg': { rot: -25 * D } } },
+      { t: 0.5, pose: { root: { rot: -90 * D, dx: -14, dy: -30 }, 'left-upper-arm': { rot: 25 * D }, 'right-upper-arm': { rot: -20 * D }, 'left-upper-leg': { rot: 18 * D }, 'right-upper-leg': { rot: -12 * D } } },
+      { t: 1, pose: { root: { rot: -130 * D, dx: -10, dy: -16 }, 'left-upper-arm': { rot: 40 * D }, 'right-upper-arm': { rot: -30 * D }, 'left-upper-leg': { rot: 30 * D }, 'right-upper-leg': { rot: -25 * D } } },
+    ],
+  },
   hit: {
     name: 'hit',
     durationFrames: 18,

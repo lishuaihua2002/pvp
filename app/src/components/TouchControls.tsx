@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { VirtualBuffer, VirtualPad } from '../game/input/keyboard'
+import type { ArenaScene } from '../game/scenes/ArenaScene'
 
 /** Touch phones/tablets get on-screen controls; desktops keep the keyboard. */
 function isTouchDevice() {
@@ -9,6 +10,8 @@ function isTouchDevice() {
 interface Props {
   /** pad for the player controlling this device */
   pad: VirtualPad | null
+  /** running scene, used to know when this device's super meter is full */
+  scene?: ArenaScene | null
   /** touch devices have no Esc key, so quitting needs a button */
   onQuit?: () => void
 }
@@ -100,11 +103,17 @@ function ActionButton({ buffer, action, label }: { buffer: VirtualBuffer; action
   )
 }
 
-export default function TouchControls({ pad, onQuit }: Props) {
+export default function TouchControls({ pad, scene, onQuit }: Props) {
   const [visible, setVisible] = useState(false)
+  const [superReady, setSuperReady] = useState(false)
   useEffect(() => {
     setVisible(isTouchDevice())
   }, [])
+  useEffect(() => {
+    if (!scene) return
+    const id = setInterval(() => setSuperReady(scene.localSuperReady()), 120)
+    return () => clearInterval(id)
+  }, [scene])
   if (!visible || !pad) return null
 
   return (
@@ -124,6 +133,17 @@ export default function TouchControls({ pad, onQuit }: Props) {
       >
         <Joystick pad={pad} />
         <div className="flex flex-col items-end gap-2">
+          {superReady && (
+            <button
+              className="pointer-events-auto flex h-16 w-16 touch-none select-none items-center justify-center rounded-full border-2 border-arcade-accent2 bg-arcade-accent2/25 text-xl font-black text-arcade-accent2 backdrop-blur-sm active:scale-95"
+              onPointerDown={(e) => {
+                e.preventDefault()
+                pad.virtualBuffer.special = true
+              }}
+            >
+              ⚡
+            </button>
+          )}
           <ActionButton buffer={pad.virtualBuffer} action="jump" label="▲" />
           <div className="flex gap-2">
             <ActionButton buffer={pad.virtualBuffer} action="punch" label="P" />

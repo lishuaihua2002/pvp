@@ -9,7 +9,6 @@ import { loadFighterById } from '../lib/supabase/fighters'
 import { supabase } from '../lib/supabase/client'
 import type { FighterManifest } from '../types/fighter'
 import type { ArenaScene } from '../game/scenes/ArenaScene'
-import type { KeyboardInput } from '../game/input/keyboard'
 import { playSfx } from '../game/audio/sfx'
 
 async function resolveFighter(id: string): Promise<FighterManifest> {
@@ -26,7 +25,7 @@ export default function ArenaPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [ping, setPing] = useState<number | null>(null)
   const [exitReason, setExitReason] = useState<'self' | 'opponent' | 'disconnect' | null>(null)
-  const [keyboard, setKeyboard] = useState<KeyboardInput | null>(null)
+  const [scene, setScene] = useState<ArenaScene | null>(null)
   const autoFriendTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const userId = session?.user.id
 
@@ -144,9 +143,10 @@ export default function ArenaPage() {
 
   return (
     <div className="relative h-full w-full bg-black">
-      <PhaserArena config={config} onSceneReady={(scene: ArenaScene) => setKeyboard(scene.keyboard)} />
+      <PhaserArena config={config} onSceneReady={setScene} />
       <TouchControls
-        pad={keyboard}
+        pad={scene?.keyboard ?? null}
+        scene={scene}
         onQuit={() => {
           setExitReason('self')
           if (userId) void exitMatch(userId, 'self')

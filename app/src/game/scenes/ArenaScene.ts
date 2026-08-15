@@ -5,6 +5,7 @@ import { ANIMATIONS, samplePose } from '../config/animations'
 import {
   ARENA_WIDTH,
   EMPTY_INPUT,
+  ENERGY_MAX,
   GROUND_Y,
   createSimState,
   stepSim,
@@ -53,6 +54,7 @@ export class ArenaScene extends Phaser.Scene {
   private opponentGone = false
   private pingTimer?: Phaser.Time.TimerEvent
   private prevActions: Record<string, string> = {}
+  private energyBars!: Phaser.GameObjects.Graphics
 
   constructor() {
     super('ArenaScene')
@@ -132,6 +134,9 @@ export class ArenaScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(10)
+
+    // energy (super) meters
+    this.energyBars = this.add.graphics().setDepth(10)
 
     // shadows
     const shadow = this.add.graphics().setDepth(1)
@@ -396,6 +401,8 @@ export class ArenaScene extends Phaser.Scene {
           }
           local.impact = sp.impact
           local.hitstun = sp.hitstun
+          local.energy = sp.energy
+          local.bounces = sp.bounces
         }
       }
     }
@@ -419,8 +426,8 @@ export class ArenaScene extends Phaser.Scene {
       inputA = cfg.isHost ? localInput : remote
       inputB = cfg.isHost ? remote : localInput
       // send our input when changed or as heartbeat
-      const enc = JSON.stringify([localInput.left, localInput.right, localInput.jump, localInput.punch, localInput.kick, localInput.sit])
-      if (enc !== this.lastSentInput || frame % 6 === 0 || localInput.jump || localInput.punch || localInput.kick) {
+      const enc = JSON.stringify([localInput.left, localInput.right, localInput.jump, localInput.punch, localInput.kick, localInput.sit, localInput.special])
+      if (enc !== this.lastSentInput || frame % 6 === 0 || localInput.jump || localInput.punch || localInput.kick || localInput.special) {
         this.lastSentInput = enc
         cfg.channel?.send('input', localInput)
       }
@@ -440,9 +447,10 @@ export class ArenaScene extends Phaser.Scene {
     this.sim.players.forEach((p, i) => {
       const prev = this.prevActions[p.playerId]
       if (p.action !== prev) {
-        if (p.action === 'punch' || p.action === 'uppercut') playSfx('punch_whiff')
+        if (p.action === 'punch' || p.action === 'uppercut' || p.action === 'lowpunch') playSfx('punch_whiff')
         if (p.action === 'kick' || p.action === 'sweep' || p.action === 'divekick') playSfx('kick_whiff')
         if (p.action === 'jump') playSfx('jump')
+        if (p.action === 'charge') playSfx('kick_whiff')
         if (p.action === 'knockdown') playSfx('knockdown')
         this.prevActions[p.playerId] = p.action
       }
@@ -459,7 +467,7 @@ export class ArenaScene extends Phaser.Scene {
 
   /** local mode: P2 controlled by arrow keys (down = sit) + '1' punch '2' kick (for same-browser testing) */
   private p2held = new Set<string>()
-  private p2buffer = { jump: false, punch: false, kick: false }
+  private p2buffer = { jump: false, punch: false, kick: false, special: false }
   private p2seq = 0
   private p2Attached = false
 
@@ -468,11 +476,12 @@ export class ArenaScene extends Phaser.Scene {
       this.p2Attached = true
       window.addEventListener('keydown', (e) => {
         const k = e.key
-        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '1', '2'].includes(k)) e.preventDefault()
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '1', '2', '3'].includes(k)) e.preventDefault()
         if (!this.p2held.has(k)) {
           if (k === 'ArrowUp') this.p2buffer.jump = true
           if (k === '1') this.p2buffer.punch = true
           if (k === '2') this.p2buffer.kick = true
+          if (k === '3') this.p2buffer.special = true
         }
         this.p2held.add(k)
       })
@@ -487,12 +496,23 @@ export class ArenaScene extends Phaser.Scene {
       sit: this.p2held.has('ArrowDown'),
       punch: this.p2buffer.punch,
       kick: this.p2buffer.kick,
+      special: this.p2buffer.special,
     }
-    this.p2buffer = { jump: false, punch: false, kick: false }
+    this.p2buffer = { jump: false, punch: false, kick: false, special: false }
     return input
   }
 
-  private onHit(kind: 'punch' | 'kick', x: number, y: number, _knockdown: boolean, defenderId: string) {
+  private onHit(kind: 'punch' | 'kick' | 'charge', x: number, y: number, _knockdown: boolean, defenderId: string) {
+    if (kind === 'charge') {
+      // the super deals no damage: heavy impact feedback only
+      this.hitstop = 120
+      this.cameras.main.shake(220, 0.012)
+      this.particles.emitParticleAt(x, y, 26)
+      playSfx('kick_hit')
+      playSfx('knockdown')
+      this.fighters.get(defenderId)?.flash(10)
+      return
+    }
     this.hitstop = kind === 'punch' ? 55 : 80
     this.cameras.main.shake(kind === 'punch' ? 90 : 140, kind === 'punch' ? 0.004 : 0.008)
     this.particles.emitParticleAt(x, y, kind === 'punch' ? 10 : 18)
@@ -501,7 +521,38 @@ export class ArenaScene extends Phaser.Scene {
     this.fighters.get(defenderId)?.flash(6)
   }
 
+  /** true when the device-local player can fire the super (drives the on-screen button) */
+  localSuperReady(): boolean {
+    const me = this.sim?.players.find((p) => p.playerId === this.cfg.localPlayerId)
+    return !!me && me.energy >= ENERGY_MAX
+  }
+
+  private drawEnergyBars() {
+    const g = this.energyBars
+    if (!g) return
+    g.clear()
+    const [left, right] = this.sim.players
+    // the camera pans and zooms, so anchor the meters to the visible area
+    const view = this.cameras.main.worldView
+    const w = Math.min(300, view.width * 0.32)
+    const h = 16
+    const y = view.y + 62
+    for (const [p, x, colour] of [
+      [left, view.x + 30, 0x3edcff],
+      [right, view.right - 30 - w, 0xff3e6c],
+    ] as const) {
+      const ratio = Math.min(1, p.energy / ENERGY_MAX)
+      g.fillStyle(0x000000, 0.5)
+      g.fillRect(x, y, w, h)
+      g.fillStyle(ratio >= 1 ? 0xffd23e : colour, 1)
+      g.fillRect(x + 2, y + 2, (w - 4) * ratio, h - 4)
+      g.lineStyle(2, ratio >= 1 ? 0xffd23e : 0x584f8f, 1)
+      g.strokeRect(x, y, w, h)
+    }
+  }
+
   private renderFighters() {
+    this.drawEnergyBars()
     for (const p of this.sim.players) {
       const f = this.fighters.get(p.playerId)
       if (!f) continue

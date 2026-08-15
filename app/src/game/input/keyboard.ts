@@ -11,6 +11,7 @@ export interface VirtualBuffer {
   jump: boolean
   punch: boolean
   kick: boolean
+  special: boolean
 }
 
 /** On-screen controls write here; the owning input sampler consumes it. */
@@ -23,23 +24,25 @@ export function clearBuffer(buffer: VirtualBuffer) {
   buffer.jump = false
   buffer.punch = false
   buffer.kick = false
+  buffer.special = false
 }
 
 /**
  * Keyboard input collector with edge-triggered attack buffering.
- * A / D move, W or Space jump, S sit, J punch, K kick.
+ * A / D move, W or Space jump (twice for a double jump), S sit, J punch, K kick, L super.
  */
 export class KeyboardInput {
   private held = new Set<string>()
-  private buffered = { jump: false, punch: false, kick: false }
+  private buffered = { jump: false, punch: false, kick: false, special: false }
   private seq = 0
   private onKeyDown = (e: KeyboardEvent) => {
     const k = e.key.toLowerCase()
-    if (['a', 'd', 'w', 's', 'j', 'k', ' '].includes(k)) e.preventDefault()
+    if (['a', 'd', 'w', 's', 'j', 'k', 'l', ' '].includes(k)) e.preventDefault()
     if (!this.held.has(k)) {
       if (k === 'w' || k === ' ') this.buffered.jump = true
       if (k === 'j') this.buffered.punch = true
       if (k === 'k') this.buffered.kick = true
+      if (k === 'l') this.buffered.special = true
     }
     this.held.add(k)
   }
@@ -48,12 +51,12 @@ export class KeyboardInput {
   }
   private onBlur = () => {
     this.held.clear()
-    this.buffered = { jump: false, punch: false, kick: false }
+    this.buffered = { jump: false, punch: false, kick: false, special: false }
   }
 
   // virtual (touch) input state, merged with keyboard
   readonly virtual: VirtualHeld = { left: false, right: false, sit: false }
-  readonly virtualBuffer: VirtualBuffer = { jump: false, punch: false, kick: false }
+  readonly virtualBuffer: VirtualBuffer = { jump: false, punch: false, kick: false, special: false }
 
   attach() {
     window.addEventListener('keydown', this.onKeyDown)
@@ -79,8 +82,9 @@ export class KeyboardInput {
       punch: this.buffered.punch || this.virtualBuffer.punch,
       kick: this.buffered.kick || this.virtualBuffer.kick,
       sit: this.held.has('s') || this.virtual.sit,
+      special: this.buffered.special || this.virtualBuffer.special,
     }
-    this.buffered = { jump: false, punch: false, kick: false }
+    this.buffered = { jump: false, punch: false, kick: false, special: false }
     clearBuffer(this.virtualBuffer)
     return input
   }

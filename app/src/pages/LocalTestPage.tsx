@@ -35,7 +35,7 @@ export default function LocalTestPage() {
     return (
       <div className="relative h-full w-full bg-black">
         <PhaserArena config={config} onSceneReady={setScene} />
-        <TouchControls pad={scene?.keyboard ?? null} onQuit={() => setStarted(false)} />
+        <TouchControls pad={scene?.keyboard ?? null} scene={scene} onQuit={() => setStarted(false)} />
       </div>
     )
   }
@@ -45,8 +45,9 @@ export default function LocalTestPage() {
       <div className="panel w-full max-w-2xl">
         <h1 className="mb-2 text-2xl font-black text-arcade-cyan">Local Versus</h1>
         <p className="mb-4 text-sm text-gray-400">
-          Two players on one keyboard: P1 uses A/D/W/J/K, P2 uses Arrow keys + 1 (punch) 2 (kick). Esc to quit. On
-          phones and tablets P1 gets on-screen buttons.
+          Two players on one keyboard: P1 uses A/D/W/J/K/L, P2 uses Arrow keys + 1 (punch) 2 (kick) 3 (super). Jump
+          twice for a double jump; crouch + punch is a low punch; L / 3 fires the super once the energy bar is full.
+          Esc to quit. On phones and tablets P1 gets on-screen buttons.
         </p>
         <div className="mb-4 grid grid-cols-2 gap-4">
           {[

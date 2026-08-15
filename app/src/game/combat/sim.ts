@@ -15,11 +15,17 @@ export const KICK_IMPACT = 34
 export const HITSTUN_FRAMES = 14
 export const GETUP_INVULN = 45
 export const HIT_PROTECT_FRAMES = 8
+export const MAX_JUMPS = 2
+export const AIR_JUMP_VELOCITY = -15
+export const ENERGY_MAX = 100
+export const CHARGE_SPEED = 18
+export const CHARGE_MAX_FRAMES = 150
+export const CHARGE_BOUNCES = 3
 
 export interface HitEvent {
   attackerId: string
   defenderId: string
-  kind: 'punch' | 'kick'
+  kind: 'punch' | 'kick' | 'charge'
   x: number
   y: number
   knockdown: boolean
@@ -40,12 +46,17 @@ export function createPlayerState(playerId: string, side: 'left' | 'right'): Pla
     impact: 0,
     lastHitId: 0,
     invulnFrames: 0,
+    jumpsUsed: 0,
+    energy: 0,
+    bounces: 0,
   }
 }
 
 /** attack moves; the ground/air/crouch variants are picked in stepPlayer */
-const ATTACKS: ActionName[] = ['punch', 'kick', 'sweep', 'uppercut', 'divekick']
-const UNCANCELLABLE: ActionName[] = [...ATTACKS, 'hit', 'knockdown', 'getup', 'entrance']
+const ATTACKS: ActionName[] = ['punch', 'kick', 'sweep', 'uppercut', 'divekick', 'lowpunch']
+const UNCANCELLABLE: ActionName[] = [...ATTACKS, 'hit', 'knockdown', 'getup', 'entrance', 'charge', 'bounce']
+/** actions that hold the crouched (low) hurtbox */
+const CROUCHED: ActionName[] = ['sit', 'sweep', 'lowpunch']
 
 function isAttack(action: ActionName): boolean {
   return ATTACKS.includes(action)
@@ -98,7 +109,7 @@ function rectsOverlap(
 
 function hurtboxes(p: PlayerState) {
   const c = DEFAULT_COLLIDERS
-  if (p.action === 'sit' || p.action === 'sweep') {
+  if (CROUCHED.includes(p.action)) {
     return [
       { x: p.x + c.crouchHeadHurtbox.x, y: p.y + c.crouchHeadHurtbox.y, w: c.crouchHeadHurtbox.w, h: c.crouchHeadHurtbox.h },
       { x: p.x + c.crouchBodyHurtbox.x, y: p.y + c.crouchBodyHurtbox.y, w: c.crouchBodyHurtbox.w, h: c.crouchBodyHurtbox.h },
@@ -124,6 +135,7 @@ export function activeHitbox(p: PlayerState): { x: number; y: number; w: number;
     sweep: c.sweepHitbox,
     uppercut: c.uppercutHitbox,
     divekick: c.divekickHitbox,
+    lowpunch: c.lowpunchHitbox,
   }
   const def = boxes[p.action]
   return {
@@ -131,8 +143,23 @@ export function activeHitbox(p: PlayerState): { x: number; y: number; w: number;
     y: p.y + def.y,
     w: def.w,
     h: def.h,
-    kind: p.action === 'punch' || p.action === 'uppercut' ? 'punch' : 'kick',
+    kind: p.action === 'punch' || p.action === 'uppercut' || p.action === 'lowpunch' ? 'punch' : 'kick',
   }
+}
+
+/** Spend a full energy bar to start a lock-on charge at the opponent. */
+function tryStartCharge(p: PlayerState, opponent: PlayerState, input: CombatInput) {
+  if (!input.special || p.energy < ENERGY_MAX) return
+  if (p.hitstun > 0 || !canAct(p)) return
+  if (p.action === 'charge' || p.action === 'bounce') return
+  if (p.action === 'hit' || p.action === 'knockdown' || p.action === 'getup' || p.action === 'entrance') return
+  p.energy = 0
+  p.facing = opponent.x >= p.x ? 1 : -1
+  p.y = GROUND_Y
+  p.vy = 0
+  p.onGround = true
+  p.jumpsUsed = 0
+  setAction(p, 'charge')
 }
 
 /** Advance one player by one frame given its input. */
@@ -158,14 +185,25 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
     p.action === 'hit' ||
     p.action === 'knockdown' ||
     p.action === 'getup' ||
-    p.action === 'entrance'
+    p.action === 'entrance' ||
+    p.action === 'charge' ||
+    p.action === 'bounce'
+
+  if (p.action === 'charge') {
+    // the super keeps rushing forward until it connects or runs out of arena
+    p.vx = p.facing * CHARGE_SPEED
+  }
 
   if (!locked) {
     // attacks (allowed both on the ground and in the air)
     if (input.punch && canAct(p)) {
-      // in the air a punch becomes a rising uppercut
-      setAction(p, p.onGround ? 'punch' : 'uppercut')
-      if (!p.onGround) p.vy = Math.min(p.vy, -6)
+      // crouching punches low, airborne punches become a rising uppercut
+      if (!p.onGround) {
+        setAction(p, 'uppercut')
+        p.vy = Math.min(p.vy, -6)
+      } else {
+        setAction(p, input.sit ? 'lowpunch' : 'punch')
+      }
     } else if (input.kick && canAct(p)) {
       if (!p.onGround) {
         // air kick dives diagonally down and forward
@@ -199,10 +237,13 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
         } else if (p.onGround && (p.action === 'walk')) {
           setAction(p, 'idle')
         }
-        if (input.jump && p.onGround) {
-          p.vy = JUMP_VELOCITY
+        if (input.jump && p.jumpsUsed < MAX_JUMPS) {
+          p.vy = p.onGround ? JUMP_VELOCITY : AIR_JUMP_VELOCITY
+          p.jumpsUsed++
           p.onGround = false
-          setAction(p, 'jump')
+          // restart the animation so the second jump reads as a new hop
+          p.action = 'jump'
+          p.actionFrame = 0
         }
       }
     } else if (p.onGround) {
@@ -220,11 +261,34 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
   if (!p.onGround) p.vy += GRAVITY
   if (p.y >= GROUND_Y) {
     const wasAirborne = !p.onGround
+    const landingVy = p.vy
     p.y = GROUND_Y
-    p.vy = 0
-    p.onGround = true
-    if (wasAirborne && (p.action === 'jump' || p.action === 'divekick' || (isAttack(p.action) && actionDone(p)))) {
+    if (p.action === 'bounce' && p.bounces > 0 && landingVy > 3) {
+      // launched by a super: bounce back up instead of landing
+      p.bounces--
+      p.vy = -Math.max(7, landingVy * 0.55)
+      p.vx *= 0.7
+      p.onGround = false
+    } else {
+      p.vy = 0
+      p.onGround = true
+      p.jumpsUsed = 0
+      if (p.action === 'bounce') {
+        setAction(p, 'getup')
+        p.vx = 0
+      } else if (wasAirborne && (p.action === 'jump' || p.action === 'divekick' || (isAttack(p.action) && actionDone(p)))) {
+        setAction(p, 'idle')
+      }
+    }
+  }
+
+  // the charge ends when it runs out of arena or time
+  if (p.action === 'charge') {
+    const half = DEFAULT_COLLIDERS.bodyWidth / 2
+    const atWall = p.x <= half + 21 || p.x >= ARENA_WIDTH - half - 21
+    if (atWall || p.actionFrame >= CHARGE_MAX_FRAMES) {
       setAction(p, 'idle')
+      p.vx = 0
     }
   }
 
@@ -238,6 +302,11 @@ export function stepSim(s: SimState, inputA: CombatInput, inputB: CombatInput): 
   s.frame++
   const [a, b] = s.players
 
+  // super activation needs both players (it locks on to the opponent)
+  for (let i = 0; i < 2; i++) {
+    tryStartCharge(s.players[i], s.players[1 - i], i === 0 ? inputA : inputB)
+  }
+
   // track attack instances for one-hit-per-move
   for (let i = 0; i < 2; i++) {
     const p = s.players[i]
@@ -249,10 +318,11 @@ export function stepSim(s: SimState, inputA: CombatInput, inputB: CombatInput): 
     }
   }
 
-  // body push-apart (no full overlap)
+  // body push-apart (no full overlap); a super charge and its victim pass through
   const minDist = DEFAULT_COLLIDERS.bodyWidth * 0.9
   const dx = b.x - a.x
-  if (Math.abs(dx) < minDist && Math.abs(a.y - b.y) < DEFAULT_COLLIDERS.bodyHeight * 0.8) {
+  const bodiesPass = [a, b].some((p) => p.action === 'charge' || p.action === 'bounce')
+  if (!bodiesPass && Math.abs(dx) < minDist && Math.abs(a.y - b.y) < DEFAULT_COLLIDERS.bodyHeight * 0.8) {
     const push = (minDist - Math.abs(dx)) / 2
     const dir = dx >= 0 ? 1 : -1
     a.x -= push * dir
@@ -267,13 +337,43 @@ export function stepSim(s: SimState, inputA: CombatInput, inputB: CombatInput): 
   }
 
   const events: HitEvent[] = []
+
+  // super charge collision: launches the opponent without dealing damage
+  for (let i = 0; i < 2; i++) {
+    const charger = s.players[i]
+    const victim = s.players[1 - i]
+    if (charger.action !== 'charge' || victim.action === 'bounce') continue
+    const c = DEFAULT_COLLIDERS
+    const hit =
+      Math.abs(charger.x - victim.x) < c.bodyWidth * 1.15 &&
+      Math.abs(charger.y - victim.y) < c.bodyHeight
+    if (!hit) continue
+    victim.action = 'bounce'
+    victim.actionFrame = 0
+    victim.bounces = CHARGE_BOUNCES
+    victim.vx = charger.facing * 20
+    victim.vy = -15
+    victim.onGround = false
+    victim.hitstun = 0
+    setAction(charger, 'idle')
+    charger.vx = 0
+    events.push({
+      attackerId: charger.playerId,
+      defenderId: victim.playerId,
+      kind: 'charge',
+      x: victim.x,
+      y: victim.y - c.bodyHeight / 2,
+      knockdown: false,
+    })
+  }
+
   // hit detection
   for (let i = 0; i < 2; i++) {
     const attacker = s.players[i]
     const defender = s.players[1 - i]
     if (s.attackLanded[i]) continue
     if (defender.invulnFrames > 0) continue
-    if (defender.action === 'knockdown' || defender.action === 'getup') continue
+    if (defender.action === 'knockdown' || defender.action === 'getup' || defender.action === 'bounce') continue
     const hb = activeHitbox(attacker)
     if (!hb) continue
     const landed = hurtboxes(defender).some((hurt) =>
@@ -291,6 +391,8 @@ export function stepSim(s: SimState, inputA: CombatInput, inputB: CombatInput): 
     const knockbackScale = 1 + defender.impact / 60
     defender.vx = attacker.facing * (hb.kind === 'punch' ? 6 : 9) * knockbackScale
     if (knockdown) {
+      // knocking the opponent down fills the super meter
+      attacker.energy = ENERGY_MAX
       setAction(defender, 'knockdown')
       defender.impact = 0
       defender.vx = attacker.facing * 12
@@ -318,4 +420,5 @@ export const EMPTY_INPUT: CombatInput = {
   punch: false,
   kick: false,
   sit: false,
+  special: false,
 }
