@@ -22,6 +22,20 @@ function run(s = createSimState('a', 'b'), frames: number, a: Partial<CombatInpu
 }
 
 describe('combat sim', () => {
+  it('sitting while holding sit, back to idle on release', () => {
+    const s = createSimState('a', 'b')
+    run(s, 5, { sit: true })
+    expect(s.players[0].action).toBe('sit')
+    expect(s.players[0].vx).toBe(0)
+    run(s, 5, { sit: true, right: true })
+    expect(s.players[0].action).toBe('sit')
+    const x = s.players[0].x
+    expect(s.players[0].x).toBe(x)
+    run(s, 2)
+    expect(s.players[0].action).toBe('idle')
+  })
+
+
   it('players start on the ground facing each other', () => {
     const s = createSimState('a', 'b')
     expect(s.players[0].y).toBe(GROUND_Y)

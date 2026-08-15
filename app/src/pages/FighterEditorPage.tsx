@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { saveFighter } from '../lib/supabase/fighters'
@@ -7,7 +7,17 @@ import { saveLocalFighter } from '../lib/localFighters'
 import { ALL_PART_TYPES, type PartType, type FighterManifest, type FighterPart } from '../types/fighter'
 import PhaserArena from '../components/PhaserArena'
 import { initAudio, playSfx } from '../game/audio/sfx'
-import { boneDistance, detectPose, segmentPerson, type Bone } from '../lib/poseDetect'
+import {
+  ALL_JOINTS,
+  JOINT_EDGES,
+  boneDistance,
+  detectPose,
+  poseFromJoints,
+  segmentPerson,
+  type JointId,
+  type JointPoints,
+  type Pt,
+} from '../lib/poseDetect'
 
 const PART_LABELS: Record<PartType, string> = {
   head: 'Head',
@@ -22,13 +32,20 @@ const PART_LABELS: Record<PartType, string> = {
   'right-lower-leg': 'R Shin',
 }
 
-interface Rect {
-  x: number
-  y: number
-  w: number
-  h: number
-  /** rotation around box center, radians (canvas clockwise) */
-  angle: number
+const JOINT_LABELS: Record<JointId, string> = {
+  head: 'Head center',
+  'shoulder-l': 'L shoulder',
+  'shoulder-r': 'R shoulder',
+  'elbow-l': 'L elbow',
+  'elbow-r': 'R elbow',
+  'hand-l': 'L hand',
+  'hand-r': 'R hand',
+  'hip-l': 'L hip',
+  'hip-r': 'R hip',
+  'knee-l': 'L knee',
+  'knee-r': 'R knee',
+  'foot-l': 'L foot',
+  'foot-r': 'R foot',
 }
 
 interface EraseStroke {
@@ -37,32 +54,29 @@ interface EraseStroke {
   radius: number
 }
 
-type Action = { kind: 'rect'; part: PartType; prev: Rect } | { kind: 'stroke'; index: number }
+type Action = { kind: 'joint'; joint: JointId; prev: Pt } | { kind: 'stroke'; index: number }
 
 const MAX_DIM = 1024
 const MAX_FILE = 10 * 1024 * 1024
 
-/** default humanoid layout, proportional to image (assumes person roughly centered, full body) */
-function defaultRects(w: number, h: number): Record<PartType, Rect> {
+/** default humanoid joint layout, proportional to image (assumes person roughly centered, full body) */
+function defaultJoints(w: number, h: number): JointPoints {
   const cx = w / 2
-  const r = (x: number, y: number, rw: number, rh: number): Rect => ({
-    x: Math.round(x),
-    y: Math.round(y),
-    w: Math.round(rw),
-    h: Math.round(rh),
-    angle: 0,
-  })
+  const p = (x: number, y: number): Pt => ({ x: Math.round(x), y: Math.round(y) })
   return {
-    head: r(cx - w * 0.11, h * 0.02, w * 0.22, h * 0.2),
-    torso: r(cx - w * 0.14, h * 0.22, w * 0.28, h * 0.28),
-    'left-upper-arm': r(cx - w * 0.26, h * 0.24, w * 0.11, h * 0.16),
-    'left-lower-arm': r(cx - w * 0.28, h * 0.4, w * 0.11, h * 0.16),
-    'right-upper-arm': r(cx + w * 0.15, h * 0.24, w * 0.11, h * 0.16),
-    'right-lower-arm': r(cx + w * 0.17, h * 0.4, w * 0.11, h * 0.16),
-    'left-upper-leg': r(cx - w * 0.14, h * 0.5, w * 0.13, h * 0.2),
-    'left-lower-leg': r(cx - w * 0.14, h * 0.7, w * 0.13, h * 0.24),
-    'right-upper-leg': r(cx + w * 0.01, h * 0.5, w * 0.13, h * 0.2),
-    'right-lower-leg': r(cx + w * 0.01, h * 0.7, w * 0.13, h * 0.24),
+    head: p(cx, h * 0.12),
+    'shoulder-l': p(cx - w * 0.14, h * 0.24),
+    'shoulder-r': p(cx + w * 0.14, h * 0.24),
+    'elbow-l': p(cx - w * 0.2, h * 0.4),
+    'elbow-r': p(cx + w * 0.2, h * 0.4),
+    'hand-l': p(cx - w * 0.23, h * 0.55),
+    'hand-r': p(cx + w * 0.23, h * 0.55),
+    'hip-l': p(cx - w * 0.08, h * 0.52),
+    'hip-r': p(cx + w * 0.08, h * 0.52),
+    'knee-l': p(cx - w * 0.09, h * 0.72),
+    'knee-r': p(cx + w * 0.09, h * 0.72),
+    'foot-l': p(cx - w * 0.1, h * 0.94),
+    'foot-r': p(cx + w * 0.1, h * 0.94),
   }
 }
 
@@ -100,11 +114,11 @@ export default function FighterEditorPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [photo, setPhoto] = useState<HTMLCanvasElement | null>(null)
   const [mask, setMask] = useState<HTMLCanvasElement | null>(null)
-  const [bones, setBones] = useState<Record<PartType, Bone> | null>(null)
+  const [joints, setJoints] = useState<JointPoints | null>(null)
   const [removeBackground, setRemoveBackground] = useState(true)
-  const [rects, setRects] = useState<Record<PartType, Rect> | null>(null)
   const [selectedPart, setSelectedPart] = useState<PartType>('head')
-  const [mode, setMode] = useState<'move' | 'resize' | 'rotate' | 'erase'>('move')
+  const [selectedJoint, setSelectedJoint] = useState<JointId | null>(null)
+  const [mode, setMode] = useState<'joints' | 'erase'>('joints')
   const [detecting, setDetecting] = useState(false)
   const [brushRadius, setBrushRadius] = useState(14)
   const [strokes, setStrokes] = useState<EraseStroke[]>([])
@@ -114,7 +128,11 @@ export default function FighterEditorPage() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [previewManifest, setPreviewManifest] = useState<FighterManifest | null>(null)
-  const dragRef = useRef<{ startX: number; startY: number; origin: Rect; stroke?: EraseStroke } | null>(null)
+  const dragRef = useRef<{ joint?: JointId; stroke?: EraseStroke } | null>(null)
+
+  const pose = useMemo(() => (joints ? poseFromJoints(joints) : null), [joints])
+  const rects = pose?.boxes ?? null
+  const bones = pose?.bones ?? null
 
   const onFile = async (file: File | undefined) => {
     setError(null)
@@ -130,12 +148,11 @@ export default function FighterEditorPage() {
     try {
       const canvas = await fileToCanvas(file)
       setPhoto(canvas)
-      setRects(defaultRects(canvas.width, canvas.height))
+      setJoints(defaultJoints(canvas.width, canvas.height))
       setStrokes([])
       setUndoStack([])
       setRedoStack([])
       setMask(null)
-      setBones(null)
       // best-effort: segment the person in the background so parts get smooth cutouts
       segmentPerson(canvas).then(setMask, () => setMask(null))
     } catch (e) {
@@ -163,24 +180,46 @@ export default function FighterEditorPage() {
       }
     }
     ctx.restore()
+    // faint derived part boxes
     for (const pt of ALL_PART_TYPES) {
       const r = rects[pt]
-      const active = pt === selectedPart
+      const active = mode === 'erase' && pt === selectedPart
       ctx.save()
       ctx.translate(r.x + r.w / 2, r.y + r.h / 2)
       ctx.rotate(r.angle)
-      ctx.strokeStyle = active ? '#ff3d6e' : 'rgba(15,245,224,0.45)'
-      ctx.lineWidth = active ? 3 : 1.5
+      ctx.strokeStyle = active ? '#ff3d6e' : 'rgba(15,245,224,0.25)'
+      ctx.lineWidth = active ? 3 : 1
       ctx.strokeRect(-r.w / 2, -r.h / 2, r.w, r.h)
-      if (active) {
-        ctx.fillStyle = '#ff3d6e'
-        ctx.font = 'bold 16px sans-serif'
-        ctx.fillText(PART_LABELS[pt], -r.w / 2 + 4, -r.h / 2 + 18)
-        ctx.fillRect(r.w / 2 - 8, r.h / 2 - 8, 8, 8)
-      }
       ctx.restore()
     }
-  }, [photo, rects, selectedPart, strokes])
+    // skeleton edges and joint handles
+    if (joints) {
+      ctx.strokeStyle = 'rgba(255,210,62,0.9)'
+      ctx.lineWidth = 2
+      for (const [a, b] of JOINT_EDGES) {
+        ctx.beginPath()
+        ctx.moveTo(joints[a].x, joints[a].y)
+        ctx.lineTo(joints[b].x, joints[b].y)
+        ctx.stroke()
+      }
+      const rad = Math.max(6, photo.width * 0.012)
+      for (const id of ALL_JOINTS) {
+        const p = joints[id]
+        const active = id === selectedJoint
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, active ? rad * 1.4 : rad, 0, Math.PI * 2)
+        ctx.fillStyle = active ? '#ff3d6e' : 'rgba(255,210,62,0.95)'
+        ctx.fill()
+        ctx.strokeStyle = '#1a1020'
+        ctx.stroke()
+        if (active) {
+          ctx.fillStyle = '#ff3d6e'
+          ctx.font = 'bold 16px sans-serif'
+          ctx.fillText(JOINT_LABELS[id], p.x + rad * 1.8, p.y - rad)
+        }
+      }
+    }
+  }, [photo, rects, joints, selectedJoint, selectedPart, mode, strokes])
 
   const toImageCoords = (e: React.PointerEvent) => {
     const canvas = canvasRef.current!
@@ -192,62 +231,44 @@ export default function FighterEditorPage() {
   }
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (!rects) return
+    if (!joints || !photo) return
     e.currentTarget.setPointerCapture(e.pointerId)
     const { x, y } = toImageCoords(e)
     if (mode === 'erase') {
       const stroke: EraseStroke = { part: selectedPart, points: [{ x, y }], radius: brushRadius }
-      dragRef.current = { startX: x, startY: y, origin: rects[selectedPart], stroke }
+      dragRef.current = { stroke }
       setStrokes((s) => [...s, stroke])
       return
     }
-    // click inside another part selects it (accounting for box rotation)
-    const inRect = (r: Rect) => {
-      const cx = r.x + r.w / 2
-      const cy = r.y + r.h / 2
-      const cos = Math.cos(-r.angle)
-      const sin = Math.sin(-r.angle)
-      const lx = (x - cx) * cos - (y - cy) * sin
-      const ly = (x - cx) * sin + (y - cy) * cos
-      return Math.abs(lx) <= r.w / 2 && Math.abs(ly) <= r.h / 2
+    // grab the nearest joint within reach
+    const grabDist = Math.max(20, photo.width * 0.035)
+    let nearest: JointId | null = null
+    let best = grabDist
+    for (const id of ALL_JOINTS) {
+      const d = Math.hypot(joints[id].x - x, joints[id].y - y)
+      if (d < best) {
+        best = d
+        nearest = id
+      }
     }
-    const hit = [...ALL_PART_TYPES].reverse().find((pt) => inRect(rects[pt]))
-    if (hit && hit !== selectedPart) setSelectedPart(hit)
-    const part = hit ?? selectedPart
-    dragRef.current = { startX: x, startY: y, origin: { ...rects[part] } }
-    setUndoStack((s) => [...s, { kind: 'rect', part, prev: { ...rects[part] } }])
+    if (!nearest) return
+    setSelectedJoint(nearest)
+    dragRef.current = { joint: nearest }
+    setUndoStack((s) => [...s, { kind: 'joint', joint: nearest, prev: { ...joints[nearest] } }])
     setRedoStack([])
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
     const drag = dragRef.current
-    if (!drag || !rects) return
+    if (!drag || !joints) return
     const { x, y } = toImageCoords(e)
-    if (mode === 'erase' && drag.stroke) {
+    if (drag.stroke) {
       drag.stroke.points.push({ x, y })
       setStrokes((s) => [...s])
       return
     }
-    const dx = x - drag.startX
-    const dy = y - drag.startY
-    const part = selectedPart
-    if (mode === 'resize') {
-      setRects({
-        ...rects,
-        [part]: {
-          ...drag.origin,
-          w: Math.max(12, drag.origin.w + dx),
-          h: Math.max(12, drag.origin.h + dy),
-        },
-      })
-    } else if (mode === 'rotate') {
-      const cx = drag.origin.x + drag.origin.w / 2
-      const cy = drag.origin.y + drag.origin.h / 2
-      const a0 = Math.atan2(drag.startY - cy, drag.startX - cx)
-      const a1 = Math.atan2(y - cy, x - cx)
-      setRects({ ...rects, [part]: { ...drag.origin, angle: drag.origin.angle + (a1 - a0) } })
-    } else {
-      setRects({ ...rects, [part]: { ...drag.origin, x: drag.origin.x + dx, y: drag.origin.y + dy } })
+    if (drag.joint) {
+      setJoints({ ...joints, [drag.joint]: { x, y } })
     }
   }
 
@@ -262,11 +283,11 @@ export default function FighterEditorPage() {
 
   const undo = () => {
     const action = undoStack[undoStack.length - 1]
-    if (!action || !rects) return
+    if (!action || !joints) return
     setUndoStack((s) => s.slice(0, -1))
-    if (action.kind === 'rect') {
-      setRedoStack((s) => [...s, { kind: 'rect', part: action.part, prev: { ...rects[action.part] } }])
-      setRects({ ...rects, [action.part]: action.prev })
+    if (action.kind === 'joint') {
+      setRedoStack((s) => [...s, { kind: 'joint', joint: action.joint, prev: { ...joints[action.joint] } }])
+      setJoints({ ...joints, [action.joint]: action.prev })
     } else {
       setRedoStack((s) => [...s, action])
       setStrokes((s) => s.slice(0, -1))
@@ -275,11 +296,11 @@ export default function FighterEditorPage() {
 
   const redo = () => {
     const action = redoStack[redoStack.length - 1]
-    if (!action || !rects) return
+    if (!action || !joints) return
     setRedoStack((s) => s.slice(0, -1))
-    if (action.kind === 'rect') {
-      setUndoStack((s) => [...s, { kind: 'rect', part: action.part, prev: { ...rects[action.part] } }])
-      setRects({ ...rects, [action.part]: action.prev })
+    if (action.kind === 'joint') {
+      setUndoStack((s) => [...s, { kind: 'joint', joint: action.joint, prev: { ...joints[action.joint] } }])
+      setJoints({ ...joints, [action.joint]: action.prev })
     }
   }
 
@@ -397,13 +418,12 @@ export default function FighterEditorPage() {
     setError(null)
     setDetecting(true)
     try {
-      const pose = await detectPose(photo)
-      if (!pose) {
-        setError('No person detected in the photo. Try a clearer full-body shot, or adjust the boxes manually.')
+      const detected = await detectPose(photo)
+      if (!detected) {
+        setError('No person detected in the photo. Try a clearer full-body shot, or drag the joint points manually.')
         return
       }
-      setRects(pose.boxes)
-      setBones(pose.bones)
+      setJoints(detected.joints)
       setUndoStack([])
       setRedoStack([])
       playSfx('ready')
@@ -554,7 +574,7 @@ export default function FighterEditorPage() {
               onPointerUp={onPointerUp}
             />
             <div className="mt-2 text-xs text-gray-500">
-              Drag to move the selected part box. In Resize mode, drag to change its size; in Rotate mode, drag around the box to tilt it. Use the Eraser to paint away the background (applies to the current part).
+              Drag the yellow joint points onto the body: head center, shoulders, elbows, hands, hips, knees and feet. The part shapes follow the skeleton automatically. Use the Eraser to paint away unwanted pixels (applies to the current part).
             </div>
           </div>
 
@@ -576,28 +596,34 @@ export default function FighterEditorPage() {
                 />
                 Smooth cutout (auto-remove background{mask ? '' : ' — unavailable for this photo'})
               </label>
-              <div className="mb-2 text-sm font-bold text-arcade-cyan">Body parts</div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {ALL_PART_TYPES.map((pt) => (
-                  <button
-                    key={pt}
-                    className={`${selectedPart === pt ? 'btn-primary' : 'btn-secondary'} text-xs`}
-                    onClick={() => setSelectedPart(pt)}
-                  >
-                    {PART_LABELS[pt]}
-                  </button>
-                ))}
-              </div>
+              {mode === 'erase' ? (
+                <>
+                  <div className="mb-2 text-sm font-bold text-arcade-cyan">Erase on part</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {ALL_PART_TYPES.map((pt) => (
+                      <button
+                        key={pt}
+                        className={`${selectedPart === pt ? 'btn-primary' : 'btn-secondary'} text-xs`}
+                        onClick={() => setSelectedPart(pt)}
+                      >
+                        {PART_LABELS[pt]}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs text-gray-400">
+                  Joints: head center, L/R shoulder, elbow, hand, hip, knee, foot. Click near a point to grab and drag it.
+                </div>
+              )}
             </div>
 
             <div className="panel">
               <div className="mb-2 text-sm font-bold text-arcade-cyan">Tools</div>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
                 {(
                   [
-                    ['move', 'Move'],
-                    ['resize', 'Resize'],
-                    ['rotate', 'Rotate'],
+                    ['joints', 'Joints'],
                     ['erase', 'Eraser'],
                   ] as const
                 ).map(([m, label]) => (
@@ -647,7 +673,7 @@ export default function FighterEditorPage() {
                 className="btn-warn text-xs"
                 onClick={() => {
                   setPhoto(null)
-                  setRects(null)
+                  setJoints(null)
                   setStrokes([])
                 }}
               >

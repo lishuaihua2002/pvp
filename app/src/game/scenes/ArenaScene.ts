@@ -400,7 +400,7 @@ export class ArenaScene extends Phaser.Scene {
       inputA = cfg.isHost ? localInput : remote
       inputB = cfg.isHost ? remote : localInput
       // send our input when changed or as heartbeat
-      const enc = JSON.stringify([localInput.left, localInput.right, localInput.jump, localInput.punch, localInput.kick])
+      const enc = JSON.stringify([localInput.left, localInput.right, localInput.jump, localInput.punch, localInput.kick, localInput.sit])
       if (enc !== this.lastSentInput || frame % 6 === 0 || localInput.jump || localInput.punch || localInput.kick) {
         this.lastSentInput = enc
         cfg.channel?.send('input', localInput)
@@ -438,7 +438,7 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
-  /** local mode: P2 controlled by arrow keys + '1' punch '2' kick (for same-browser testing) */
+  /** local mode: P2 controlled by arrow keys (down = sit) + '1' punch '2' kick (for same-browser testing) */
   private p2held = new Set<string>()
   private p2buffer = { jump: false, punch: false, kick: false }
   private p2seq = 0
@@ -449,7 +449,7 @@ export class ArenaScene extends Phaser.Scene {
       this.p2Attached = true
       window.addEventListener('keydown', (e) => {
         const k = e.key
-        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', '1', '2'].includes(k)) e.preventDefault()
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '1', '2'].includes(k)) e.preventDefault()
         if (!this.p2held.has(k)) {
           if (k === 'ArrowUp') this.p2buffer.jump = true
           if (k === '1') this.p2buffer.punch = true
@@ -465,6 +465,7 @@ export class ArenaScene extends Phaser.Scene {
       left: this.p2held.has('ArrowLeft'),
       right: this.p2held.has('ArrowRight'),
       jump: this.p2buffer.jump,
+      sit: this.p2held.has('ArrowDown'),
       punch: this.p2buffer.punch,
       kick: this.p2buffer.kick,
     }

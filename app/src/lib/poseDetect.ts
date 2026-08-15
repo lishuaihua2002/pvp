@@ -106,10 +106,58 @@ export async function segmentPerson(photo: HTMLCanvasElement): Promise<HTMLCanva
   }
 }
 
-interface Pt {
+export interface Pt {
   x: number
   y: number
 }
+
+/** Editable skeleton joints (image space, l/r = image side). */
+export type JointId =
+  | 'head'
+  | 'shoulder-l'
+  | 'shoulder-r'
+  | 'elbow-l'
+  | 'elbow-r'
+  | 'hand-l'
+  | 'hand-r'
+  | 'hip-l'
+  | 'hip-r'
+  | 'knee-l'
+  | 'knee-r'
+  | 'foot-l'
+  | 'foot-r'
+
+export const ALL_JOINTS: JointId[] = [
+  'head',
+  'shoulder-l',
+  'shoulder-r',
+  'elbow-l',
+  'elbow-r',
+  'hand-l',
+  'hand-r',
+  'hip-l',
+  'hip-r',
+  'knee-l',
+  'knee-r',
+  'foot-l',
+  'foot-r',
+]
+
+export type JointPoints = Record<JointId, Pt>
+
+/** Skeleton edges for drawing (joint pairs). */
+export const JOINT_EDGES: [JointId, JointId][] = [
+  ['shoulder-l', 'shoulder-r'],
+  ['shoulder-l', 'elbow-l'],
+  ['elbow-l', 'hand-l'],
+  ['shoulder-r', 'elbow-r'],
+  ['elbow-r', 'hand-r'],
+  ['hip-l', 'hip-r'],
+  ['hip-l', 'knee-l'],
+  ['knee-l', 'foot-l'],
+  ['hip-r', 'knee-r'],
+  ['knee-r', 'foot-r'],
+]
 
 /** A bone segment in photo coordinates, used to assign person pixels to parts. */
 export interface Bone {
@@ -122,6 +170,7 @@ export interface Bone {
 }
 
 export interface PoseResult {
+  joints: JointPoints
   boxes: Record<PartType, PartBox>
   bones: Record<PartType, Bone>
 }
@@ -177,12 +226,33 @@ export async function detectPose(photo: HTMLCanvasElement): Promise<PoseResult |
   const footImgL = p(32)
   const footImgR = p(31)
 
-  const shoulderW = Math.max(24, Math.hypot(shoulderImgL.x - shoulderImgR.x, shoulderImgL.y - shoulderImgR.y))
+  const joints: JointPoints = {
+    head: mid(mid(earL, earR), nose),
+    'shoulder-l': shoulderImgL,
+    'shoulder-r': shoulderImgR,
+    'elbow-l': elbowImgL,
+    'elbow-r': elbowImgR,
+    'hand-l': handImgL,
+    'hand-r': handImgR,
+    'hip-l': hipImgL,
+    'hip-r': hipImgR,
+    'knee-l': kneeImgL,
+    'knee-r': kneeImgR,
+    'foot-l': footImgL,
+    'foot-r': footImgR,
+  }
+  return poseFromJoints(joints)
+}
+
+/** Builds oriented part boxes and cutting bones from editable joint points. */
+export function poseFromJoints(j: JointPoints): PoseResult {
+  const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+  const shoulderW = Math.max(24, Math.hypot(j['shoulder-l'].x - j['shoulder-r'].x, j['shoulder-l'].y - j['shoulder-r'].y))
   const armW = shoulderW * 0.38
   const legW = shoulderW * 0.48
-  const midShoulder = mid(shoulderImgL, shoulderImgR)
-  const midHip = mid(hipImgL, hipImgR)
-  const headCenter = mid(mid(earL, earR), nose)
+  const midShoulder = mid(j['shoulder-l'], j['shoulder-r'])
+  const midHip = mid(j['hip-l'], j['hip-r'])
+  const headCenter = j.head
   const headW = shoulderW * 0.95
   const headH = headW * 1.25
 
@@ -195,14 +265,14 @@ export async function detectPose(photo: HTMLCanvasElement): Promise<PoseResult |
       angle: 0,
     },
     torso: seg(midShoulder, midHip, shoulderW * 1.45, 1.2),
-    'left-upper-arm': seg(shoulderImgL, elbowImgL, armW),
-    'left-lower-arm': seg(elbowImgL, handImgL, armW * 0.95, 1.25),
-    'right-upper-arm': seg(shoulderImgR, elbowImgR, armW),
-    'right-lower-arm': seg(elbowImgR, handImgR, armW * 0.95, 1.25),
-    'left-upper-leg': seg(hipImgL, kneeImgL, legW),
-    'left-lower-leg': seg(kneeImgL, footImgL, legW * 1.1, 1.2),
-    'right-upper-leg': seg(hipImgR, kneeImgR, legW),
-    'right-lower-leg': seg(kneeImgR, footImgR, legW * 1.1, 1.2),
+    'left-upper-arm': seg(j['shoulder-l'], j['elbow-l'], armW),
+    'left-lower-arm': seg(j['elbow-l'], j['hand-l'], armW * 0.95, 1.25),
+    'right-upper-arm': seg(j['shoulder-r'], j['elbow-r'], armW),
+    'right-lower-arm': seg(j['elbow-r'], j['hand-r'], armW * 0.95, 1.25),
+    'left-upper-leg': seg(j['hip-l'], j['knee-l'], legW),
+    'left-lower-leg': seg(j['knee-l'], j['foot-l'], legW * 1.1, 1.2),
+    'right-upper-leg': seg(j['hip-r'], j['knee-r'], legW),
+    'right-lower-leg': seg(j['knee-r'], j['foot-r'], legW * 1.1, 1.2),
   }
 
   const bone = (a: Pt, b: Pt, halfW: number): Bone => ({ ax: a.x, ay: a.y, bx: b.x, by: b.y, halfW })
@@ -210,17 +280,17 @@ export async function detectPose(photo: HTMLCanvasElement): Promise<PoseResult |
   const bones: Record<PartType, Bone> = {
     head: bone(crown, midShoulder, headW * 0.55),
     torso: bone(midShoulder, midHip, shoulderW * 0.72),
-    'left-upper-arm': bone(shoulderImgL, elbowImgL, armW / 2),
-    'left-lower-arm': bone(elbowImgL, handImgL, armW / 2),
-    'right-upper-arm': bone(shoulderImgR, elbowImgR, armW / 2),
-    'right-lower-arm': bone(elbowImgR, handImgR, armW / 2),
-    'left-upper-leg': bone(hipImgL, kneeImgL, legW / 2),
-    'left-lower-leg': bone(kneeImgL, footImgL, legW / 2),
-    'right-upper-leg': bone(hipImgR, kneeImgR, legW / 2),
-    'right-lower-leg': bone(kneeImgR, footImgR, legW / 2),
+    'left-upper-arm': bone(j['shoulder-l'], j['elbow-l'], armW / 2),
+    'left-lower-arm': bone(j['elbow-l'], j['hand-l'], armW / 2),
+    'right-upper-arm': bone(j['shoulder-r'], j['elbow-r'], armW / 2),
+    'right-lower-arm': bone(j['elbow-r'], j['hand-r'], armW / 2),
+    'left-upper-leg': bone(j['hip-l'], j['knee-l'], legW / 2),
+    'left-lower-leg': bone(j['knee-l'], j['foot-l'], legW / 2),
+    'right-upper-leg': bone(j['hip-r'], j['knee-r'], legW / 2),
+    'right-lower-leg': bone(j['knee-r'], j['foot-r'], legW / 2),
   }
 
-  return { boxes, bones }
+  return { joints: j, boxes, bones }
 }
 
 /** Normalized distance from a photo point to a bone (distance to segment / limb half-width). */

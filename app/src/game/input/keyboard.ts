@@ -3,7 +3,7 @@ import { EMPTY_INPUT } from '../combat/sim'
 
 /**
  * Keyboard input collector with edge-triggered attack buffering.
- * A / D move, W or Space jump, J punch, K kick.
+ * A / D move, W or Space jump, S sit, J punch, K kick.
  */
 export class KeyboardInput {
   private held = new Set<string>()
@@ -11,7 +11,7 @@ export class KeyboardInput {
   private seq = 0
   private onKeyDown = (e: KeyboardEvent) => {
     const k = e.key.toLowerCase()
-    if (['a', 'd', 'w', 'j', 'k', ' '].includes(k)) e.preventDefault()
+    if (['a', 'd', 'w', 's', 'j', 'k', ' '].includes(k)) e.preventDefault()
     if (!this.held.has(k)) {
       if (k === 'w' || k === ' ') this.buffered.jump = true
       if (k === 'j') this.buffered.punch = true
@@ -54,6 +54,7 @@ export class KeyboardInput {
       jump: this.buffered.jump || this.virtualBuffer.jump,
       punch: this.buffered.punch || this.virtualBuffer.punch,
       kick: this.buffered.kick || this.virtualBuffer.kick,
+      sit: this.held.has('s'),
     }
     this.buffered = { jump: false, punch: false, kick: false }
     this.virtualBuffer = { jump: false, punch: false, kick: false }

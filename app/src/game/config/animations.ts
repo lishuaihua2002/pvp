@@ -84,6 +84,16 @@ export const ANIMATIONS: Record<ActionName, AnimationDefinition> = {
       { t: 1, pose: { root: { dy: 0 } } },
     ],
   },
+  sit: {
+    name: 'sit',
+    durationFrames: 60,
+    loop: true,
+    keyframes: [
+      { t: 0, pose: { root: { dy: 38 }, torso: { rot: 6 * D }, 'left-upper-leg': { rot: 75 * D }, 'right-upper-leg': { rot: -75 * D }, 'left-lower-leg': { rot: -80 * D }, 'right-lower-leg': { rot: 80 * D }, 'left-upper-arm': { rot: 20 * D }, 'right-upper-arm': { rot: -20 * D }, 'left-lower-arm': { rot: 25 * D }, 'right-lower-arm': { rot: -25 * D } } },
+      { t: 0.5, pose: { root: { dy: 40 }, torso: { rot: 6 * D }, head: { rot: 2 * D }, 'left-upper-leg': { rot: 75 * D }, 'right-upper-leg': { rot: -75 * D }, 'left-lower-leg': { rot: -80 * D }, 'right-lower-leg': { rot: 80 * D }, 'left-upper-arm': { rot: 22 * D }, 'right-upper-arm': { rot: -22 * D }, 'left-lower-arm': { rot: 27 * D }, 'right-lower-arm': { rot: -27 * D } } },
+      { t: 1, pose: { root: { dy: 38 }, torso: { rot: 6 * D }, 'left-upper-leg': { rot: 75 * D }, 'right-upper-leg': { rot: -75 * D }, 'left-lower-leg': { rot: -80 * D }, 'right-lower-leg': { rot: 80 * D }, 'left-upper-arm': { rot: 20 * D }, 'right-upper-arm': { rot: -20 * D }, 'left-lower-arm': { rot: 25 * D }, 'right-lower-arm': { rot: -25 * D } } },
+    ],
+  },
   hit: {
     name: 'hit',
     durationFrames: 18,

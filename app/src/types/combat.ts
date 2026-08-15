@@ -4,6 +4,7 @@ export type ActionName =
   | 'jump'
   | 'punch'
   | 'kick'
+  | 'sit'
   | 'hit'
   | 'knockdown'
   | 'getup'
@@ -17,6 +18,8 @@ export interface CombatInput {
   jump: boolean
   punch: boolean
   kick: boolean
+  /** held: crouch/sit while on the ground */
+  sit: boolean
 }
 
 export interface PlayerState {

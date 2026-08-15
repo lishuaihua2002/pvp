@@ -153,20 +153,26 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
 
     // movement
     if (!attacking) {
-      let dir = 0
-      if (input.left) dir -= 1
-      if (input.right) dir += 1
-      p.vx = dir * WALK_SPEED
-      if (dir !== 0) {
-        p.facing = dir > 0 ? 1 : -1
-        if (p.onGround && p.action !== 'jump') setAction(p, 'walk')
-      } else if (p.onGround && (p.action === 'walk')) {
-        setAction(p, 'idle')
-      }
-      if (input.jump && p.onGround) {
-        p.vy = JUMP_VELOCITY
-        p.onGround = false
-        setAction(p, 'jump')
+      if (input.sit && p.onGround) {
+        setAction(p, 'sit')
+        p.vx = 0
+      } else {
+        if (p.action === 'sit') setAction(p, 'idle')
+        let dir = 0
+        if (input.left) dir -= 1
+        if (input.right) dir += 1
+        p.vx = dir * WALK_SPEED
+        if (dir !== 0) {
+          p.facing = dir > 0 ? 1 : -1
+          if (p.onGround && p.action !== 'jump') setAction(p, 'walk')
+        } else if (p.onGround && (p.action === 'walk')) {
+          setAction(p, 'idle')
+        }
+        if (input.jump && p.onGround) {
+          p.vy = JUMP_VELOCITY
+          p.onGround = false
+          setAction(p, 'jump')
+        }
       }
     } else if (p.onGround) {
       // limited drift while attacking on the ground; keep air momentum
@@ -281,4 +287,5 @@ export const EMPTY_INPUT: CombatInput = {
   jump: false,
   punch: false,
   kick: false,
+  sit: false,
 }
