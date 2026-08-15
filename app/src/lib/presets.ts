@@ -90,11 +90,99 @@ function drawPart(theme: PresetTheme, part: PartType): string {
   return canvas.toDataURL('image/png')
 }
 
+/** Stick-figure fighter: line limbs with shoulder bar, hip bar, hands and feet. */
+function drawStickPart(part: PartType): string {
+  const { w, h } = PART_SIZES[part]
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const g = canvas.getContext('2d')!
+  g.strokeStyle = '#f5f5f5'
+  g.fillStyle = '#f5f5f5'
+  g.lineWidth = 6
+  g.lineCap = 'round'
+
+  if (part === 'head') {
+    // hollow head with eyes
+    g.beginPath()
+    g.arc(w / 2, h / 2, Math.min(w, h) / 2 - 5, 0, Math.PI * 2)
+    g.stroke()
+    g.beginPath()
+    g.arc(w * 0.38, h * 0.45, 2.6, 0, Math.PI * 2)
+    g.arc(w * 0.66, h * 0.45, 2.6, 0, Math.PI * 2)
+    g.fill()
+  } else if (part === 'torso') {
+    // spine with shoulder bar (top) and hip bar (bottom)
+    g.beginPath()
+    g.moveTo(w / 2, 6)
+    g.lineTo(w / 2, h - 6)
+    g.stroke()
+    g.beginPath()
+    g.moveTo(6, 8)
+    g.lineTo(w - 6, 8)
+    g.stroke()
+    g.beginPath()
+    g.moveTo(10, h - 8)
+    g.lineTo(w - 10, h - 8)
+    g.stroke()
+  } else if (part.includes('lower-arm')) {
+    // forearm line ending in a hand
+    g.beginPath()
+    g.moveTo(w / 2, 4)
+    g.lineTo(w / 2, h - 12)
+    g.stroke()
+    g.beginPath()
+    g.arc(w / 2, h - 9, 7, 0, Math.PI * 2)
+    g.fill()
+  } else if (part.includes('lower-leg')) {
+    // shin line ending in a foot
+    g.beginPath()
+    g.moveTo(w / 2, 4)
+    g.lineTo(w / 2, h - 8)
+    g.stroke()
+    g.beginPath()
+    g.moveTo(w / 2, h - 5)
+    g.lineTo(w - 1, h - 5)
+    g.stroke()
+  } else {
+    // upper arm / thigh: plain line
+    g.beginPath()
+    g.moveTo(w / 2, 4)
+    g.lineTo(w / 2, h - 4)
+    g.stroke()
+  }
+  return canvas.toDataURL('image/png')
+}
+
+function buildStickman(): FighterManifest {
+  const parts: FighterPart[] = (Object.keys(PART_SIZES) as PartType[]).map((pt, i) => {
+    const { w, h } = PART_SIZES[pt]
+    return {
+      partType: pt,
+      url: drawStickPart(pt),
+      width: w,
+      height: h,
+      pivotX: w / 2,
+      pivotY: pt === 'head' ? h - 4 : 6,
+      sortOrder: i,
+    }
+  })
+  return {
+    id: 'preset-stickman',
+    ownerId: 'builtin',
+    name: 'Stickman',
+    description: 'Classic stick figure with shoulders, hips, hands and feet',
+    parts,
+    scale: 1,
+    preset: true,
+  }
+}
+
 let cache: FighterManifest[] | null = null
 
 export function getPresetFighters(): FighterManifest[] {
   if (cache) return cache
-  cache = THEMES.map((theme) => {
+  const themed = THEMES.map((theme) => {
     const parts: FighterPart[] = (Object.keys(PART_SIZES) as PartType[]).map((pt, i) => {
       const { w, h } = PART_SIZES[pt]
       return {
@@ -117,6 +205,7 @@ export function getPresetFighters(): FighterManifest[] {
       preset: true,
     }
   })
+  cache = [...themed, buildStickman()]
   return cache
 }
 
