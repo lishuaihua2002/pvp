@@ -7,6 +7,7 @@ import { saveLocalFighter } from '../lib/localFighters'
 import { ALL_PART_TYPES, type PartType, type FighterManifest, type FighterPart } from '../types/fighter'
 import PhaserArena from '../components/PhaserArena'
 import { initAudio, playSfx } from '../game/audio/sfx'
+import { detectPartBoxes } from '../lib/poseDetect'
 
 const PART_LABELS: Record<PartType, string> = {
   head: 'Head',
@@ -26,6 +27,8 @@ interface Rect {
   y: number
   w: number
   h: number
+  /** rotation around box center, radians (canvas clockwise) */
+  angle: number
 }
 
 interface EraseStroke {
@@ -47,6 +50,7 @@ function defaultRects(w: number, h: number): Record<PartType, Rect> {
     y: Math.round(y),
     w: Math.round(rw),
     h: Math.round(rh),
+    angle: 0,
   })
   return {
     head: r(cx - w * 0.11, h * 0.02, w * 0.22, h * 0.2),
@@ -97,7 +101,8 @@ export default function FighterEditorPage() {
   const [photo, setPhoto] = useState<HTMLCanvasElement | null>(null)
   const [rects, setRects] = useState<Record<PartType, Rect> | null>(null)
   const [selectedPart, setSelectedPart] = useState<PartType>('head')
-  const [mode, setMode] = useState<'move' | 'resize' | 'erase'>('move')
+  const [mode, setMode] = useState<'move' | 'resize' | 'rotate' | 'erase'>('move')
+  const [detecting, setDetecting] = useState(false)
   const [brushRadius, setBrushRadius] = useState(14)
   const [strokes, setStrokes] = useState<EraseStroke[]>([])
   const [undoStack, setUndoStack] = useState<Action[]>([])
@@ -154,15 +159,19 @@ export default function FighterEditorPage() {
     for (const pt of ALL_PART_TYPES) {
       const r = rects[pt]
       const active = pt === selectedPart
+      ctx.save()
+      ctx.translate(r.x + r.w / 2, r.y + r.h / 2)
+      ctx.rotate(r.angle)
       ctx.strokeStyle = active ? '#ff3d6e' : 'rgba(15,245,224,0.45)'
       ctx.lineWidth = active ? 3 : 1.5
-      ctx.strokeRect(r.x, r.y, r.w, r.h)
+      ctx.strokeRect(-r.w / 2, -r.h / 2, r.w, r.h)
       if (active) {
         ctx.fillStyle = '#ff3d6e'
         ctx.font = 'bold 16px sans-serif'
-        ctx.fillText(PART_LABELS[pt], r.x + 4, r.y + 18)
-        ctx.fillRect(r.x + r.w - 8, r.y + r.h - 8, 8, 8)
+        ctx.fillText(PART_LABELS[pt], -r.w / 2 + 4, -r.h / 2 + 18)
+        ctx.fillRect(r.w / 2 - 8, r.h / 2 - 8, 8, 8)
       }
+      ctx.restore()
     }
   }, [photo, rects, selectedPart, strokes])
 
@@ -185,10 +194,17 @@ export default function FighterEditorPage() {
       setStrokes((s) => [...s, stroke])
       return
     }
-    // click inside another part selects it
-    const hit = [...ALL_PART_TYPES]
-      .reverse()
-      .find((pt) => x >= rects[pt].x && x <= rects[pt].x + rects[pt].w && y >= rects[pt].y && y <= rects[pt].y + rects[pt].h)
+    // click inside another part selects it (accounting for box rotation)
+    const inRect = (r: Rect) => {
+      const cx = r.x + r.w / 2
+      const cy = r.y + r.h / 2
+      const cos = Math.cos(-r.angle)
+      const sin = Math.sin(-r.angle)
+      const lx = (x - cx) * cos - (y - cy) * sin
+      const ly = (x - cx) * sin + (y - cy) * cos
+      return Math.abs(lx) <= r.w / 2 && Math.abs(ly) <= r.h / 2
+    }
+    const hit = [...ALL_PART_TYPES].reverse().find((pt) => inRect(rects[pt]))
     if (hit && hit !== selectedPart) setSelectedPart(hit)
     const part = hit ?? selectedPart
     dragRef.current = { startX: x, startY: y, origin: { ...rects[part] } }
@@ -217,6 +233,12 @@ export default function FighterEditorPage() {
           h: Math.max(12, drag.origin.h + dy),
         },
       })
+    } else if (mode === 'rotate') {
+      const cx = drag.origin.x + drag.origin.w / 2
+      const cy = drag.origin.y + drag.origin.h / 2
+      const a0 = Math.atan2(drag.startY - cy, drag.startX - cx)
+      const a1 = Math.atan2(y - cy, x - cx)
+      setRects({ ...rects, [part]: { ...drag.origin, angle: drag.origin.angle + (a1 - a0) } })
     } else {
       setRects({ ...rects, [part]: { ...drag.origin, x: drag.origin.x + dx, y: drag.origin.y + dy } })
     }
@@ -262,13 +284,24 @@ export default function FighterEditorPage() {
       c.width = Math.max(1, Math.round(r.w))
       c.height = Math.max(1, Math.round(r.h))
       const ctx = c.getContext('2d')!
-      ctx.drawImage(photo, r.x, r.y, r.w, r.h, 0, 0, c.width, c.height)
+      const cx = r.x + r.w / 2
+      const cy = r.y + r.h / 2
+      // sample the rotated box from the photo into an upright part image
+      ctx.save()
+      ctx.translate(c.width / 2, c.height / 2)
+      ctx.rotate(-r.angle)
+      ctx.drawImage(photo, -cx, -cy)
+      ctx.restore()
       ctx.globalCompositeOperation = 'destination-out'
+      const cos = Math.cos(-r.angle)
+      const sin = Math.sin(-r.angle)
       for (const s of strokes) {
         if (s.part !== pt) continue
         for (const p of s.points) {
+          const lx = (p.x - cx) * cos - (p.y - cy) * sin + c.width / 2
+          const ly = (p.x - cx) * sin + (p.y - cy) * cos + c.height / 2
           ctx.beginPath()
-          ctx.arc(p.x - r.x, p.y - r.y, s.radius, 0, Math.PI * 2)
+          ctx.arc(lx, ly, s.radius, 0, Math.PI * 2)
           ctx.fill()
         }
       }
@@ -283,6 +316,27 @@ export default function FighterEditorPage() {
       }
       return { part, canvas: c }
     })
+  }
+
+  const autoDetect = async () => {
+    if (!photo) return
+    setError(null)
+    setDetecting(true)
+    try {
+      const boxes = await detectPartBoxes(photo)
+      if (!boxes) {
+        setError('No person detected in the photo. Try a clearer full-body shot, or adjust the boxes manually.')
+        return
+      }
+      setRects(boxes)
+      setUndoStack([])
+      setRedoStack([])
+      playSfx('ready')
+    } catch (e) {
+      setError(`Auto-detect failed: ${(e as Error).message}`)
+    } finally {
+      setDetecting(false)
+    }
   }
 
   const preview = () => {
@@ -425,12 +479,19 @@ export default function FighterEditorPage() {
               onPointerUp={onPointerUp}
             />
             <div className="mt-2 text-xs text-gray-500">
-              Drag to move the selected part box. In Resize mode, drag to change its size. Use the Eraser to paint away the background (applies to the current part).
+              Drag to move the selected part box. In Resize mode, drag to change its size; in Rotate mode, drag around the box to tilt it. Use the Eraser to paint away the background (applies to the current part).
             </div>
           </div>
 
           <div className="flex flex-col gap-3">
             <div className="panel">
+              <button
+                className="btn-primary mb-3 w-full"
+                disabled={detecting}
+                onClick={() => void autoDetect()}
+              >
+                {detecting ? 'Detecting...' : '\u2728 Auto-detect body parts'}
+              </button>
               <div className="mb-2 text-sm font-bold text-arcade-cyan">Body parts</div>
               <div className="grid grid-cols-2 gap-1.5">
                 {ALL_PART_TYPES.map((pt) => (
@@ -447,11 +508,12 @@ export default function FighterEditorPage() {
 
             <div className="panel">
               <div className="mb-2 text-sm font-bold text-arcade-cyan">Tools</div>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-4 gap-1.5">
                 {(
                   [
                     ['move', 'Move'],
                     ['resize', 'Resize'],
+                    ['rotate', 'Rotate'],
                     ['erase', 'Eraser'],
                   ] as const
                 ).map(([m, label]) => (

@@ -49,6 +49,32 @@ describe('combat sim', () => {
     expect(s.players[0].y).toBe(GROUND_Y)
   })
 
+  it('attacks can be thrown while airborne and land back to idle', () => {
+    const s = createSimState('a', 'b')
+    stepSim(s, input(0, { jump: true }), idle(0))
+    run(s, 3)
+    expect(s.players[0].y).toBeLessThan(GROUND_Y)
+    stepSim(s, input(s.frame, { punch: true }), idle(s.frame))
+    expect(s.players[0].action).toBe('punch')
+    expect(s.players[0].y).toBeLessThan(GROUND_Y)
+    run(s, SIM_FPS * 3)
+    expect(s.players[0].y).toBe(GROUND_Y)
+    expect(s.players[0].action).toBe('idle')
+  })
+
+  it('air kick in range produces a hit event', () => {
+    const s = createSimState('a', 'b')
+    run(s, 120, { right: true }, { left: true })
+    s.players[0].y = GROUND_Y - 8
+    s.players[0].vy = -2
+    s.players[0].onGround = false
+    stepSim(s, input(s.frame, { kick: true }), idle(s.frame))
+    expect(s.players[0].action).toBe('kick')
+    expect(s.players[0].onGround).toBe(false)
+    const { events } = run(s, 30, { kick: true })
+    expect(events.filter((e) => e.kind === 'kick').length).toBeGreaterThan(0)
+  })
+
   it('punch in range produces a hit event and hitstun', () => {
     const s = createSimState('a', 'b')
     // walk together

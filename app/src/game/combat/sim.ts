@@ -7,7 +7,7 @@ export const ARENA_WIDTH = 1280
 export const GROUND_Y = 620
 export const GRAVITY = 0.9
 export const WALK_SPEED = 4.2
-export const JUMP_VELOCITY = -16
+export const JUMP_VELOCITY = -21
 export const KNOCKDOWN_THRESHOLD = 100
 export const IMPACT_DECAY = 0.25
 export const PUNCH_IMPACT = 22
@@ -142,10 +142,10 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
     p.action === 'entrance'
 
   if (!locked) {
-    // attacks
-    if (input.punch && canAct(p) && p.onGround) {
+    // attacks (allowed both on the ground and in the air)
+    if (input.punch && canAct(p)) {
       setAction(p, 'punch')
-    } else if (input.kick && canAct(p) && p.onGround) {
+    } else if (input.kick && canAct(p)) {
       setAction(p, 'kick')
     }
 
@@ -168,8 +168,8 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
         p.onGround = false
         setAction(p, 'jump')
       }
-    } else {
-      // limited drift while attacking
+    } else if (p.onGround) {
+      // limited drift while attacking on the ground; keep air momentum
       p.vx *= 0.8
     }
   } else {
@@ -186,7 +186,9 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
     p.y = GROUND_Y
     p.vy = 0
     p.onGround = true
-    if (wasAirborne && p.action === 'jump') setAction(p, 'idle')
+    if (wasAirborne && (p.action === 'jump' || ((p.action === 'punch' || p.action === 'kick') && actionDone(p)))) {
+      setAction(p, 'idle')
+    }
   }
 
   // bounds

@@ -56,7 +56,14 @@ export class SkeletalFighter {
       const key = `${manifest.id}:${pt}`
       const img = scene.add.image(0, 0, key)
       const size = DISPLAY_SIZES[pt]
-      img.setDisplaySize(size.w, size.h)
+      if (manifest.preset) {
+        img.setDisplaySize(size.w, size.h)
+      } else {
+        // photo fighters: keep the part's own proportions, normalized to standard height
+        const src = manifest.parts.find((p) => p.partType === pt)
+        const ratio = src && src.height > 0 ? src.width / src.height : size.w / size.h
+        img.setDisplaySize(Math.min(size.w * 2.5, size.h * ratio), size.h)
+      }
       img.setOrigin(0.5, originY)
       const holder = scene.add.container(jointX, jointY, [img])
       parent.add(holder)
