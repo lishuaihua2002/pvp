@@ -1,6 +1,30 @@
 import type { CombatInput } from '../../types/combat'
 import { EMPTY_INPUT } from '../combat/sim'
 
+export interface VirtualHeld {
+  left: boolean
+  right: boolean
+  sit: boolean
+}
+
+export interface VirtualBuffer {
+  jump: boolean
+  punch: boolean
+  kick: boolean
+}
+
+/** On-screen controls write here; the owning input sampler consumes it. */
+export interface VirtualPad {
+  virtual: VirtualHeld
+  virtualBuffer: VirtualBuffer
+}
+
+export function clearBuffer(buffer: VirtualBuffer) {
+  buffer.jump = false
+  buffer.punch = false
+  buffer.kick = false
+}
+
 /**
  * Keyboard input collector with edge-triggered attack buffering.
  * A / D move, W or Space jump, S sit, J punch, K kick.
@@ -28,8 +52,8 @@ export class KeyboardInput {
   }
 
   // virtual (touch) input state, merged with keyboard
-  virtual = { left: false, right: false }
-  virtualBuffer = { jump: false, punch: false, kick: false }
+  readonly virtual: VirtualHeld = { left: false, right: false, sit: false }
+  readonly virtualBuffer: VirtualBuffer = { jump: false, punch: false, kick: false }
 
   attach() {
     window.addEventListener('keydown', this.onKeyDown)
@@ -54,10 +78,10 @@ export class KeyboardInput {
       jump: this.buffered.jump || this.virtualBuffer.jump,
       punch: this.buffered.punch || this.virtualBuffer.punch,
       kick: this.buffered.kick || this.virtualBuffer.kick,
-      sit: this.held.has('s'),
+      sit: this.held.has('s') || this.virtual.sit,
     }
     this.buffered = { jump: false, punch: false, kick: false }
-    this.virtualBuffer = { jump: false, punch: false, kick: false }
+    clearBuffer(this.virtualBuffer)
     return input
   }
 }

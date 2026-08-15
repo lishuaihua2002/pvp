@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PhaserArena from '../components/PhaserArena'
+import TouchControls from '../components/TouchControls'
+import type { ArenaScene } from '../game/scenes/ArenaScene'
 import { getPresetFighters } from '../lib/presets'
 import { getLocalFighters, deleteLocalFighter } from '../lib/localFighters'
 import { initAudio, playSfx } from '../game/audio/sfx'
@@ -10,6 +12,7 @@ export default function LocalTestPage() {
   const [custom, setCustom] = useState(() => getLocalFighters())
   const fighters = useMemo(() => [...presets, ...custom], [presets, custom])
   const [started, setStarted] = useState(false)
+  const [scene, setScene] = useState<ArenaScene | null>(null)
   const [p1, setP1] = useState(0)
   const [p2, setP2] = useState(1)
 
@@ -30,8 +33,9 @@ export default function LocalTestPage() {
 
   if (started) {
     return (
-      <div className="h-full w-full bg-black">
-        <PhaserArena config={config} />
+      <div className="relative h-full w-full bg-black">
+        <PhaserArena config={config} onSceneReady={setScene} />
+        <TouchControls pad={scene?.keyboard ?? null} onQuit={() => setStarted(false)} />
       </div>
     )
   }
@@ -41,7 +45,8 @@ export default function LocalTestPage() {
       <div className="panel w-full max-w-2xl">
         <h1 className="mb-2 text-2xl font-black text-arcade-cyan">Local Versus</h1>
         <p className="mb-4 text-sm text-gray-400">
-          Two players on one keyboard: P1 uses A/D/W/J/K, P2 uses Arrow keys + 1 (punch) 2 (kick). Esc to quit.
+          Two players on one keyboard: P1 uses A/D/W/J/K, P2 uses Arrow keys + 1 (punch) 2 (kick). Esc to quit. On
+          phones and tablets P1 gets on-screen buttons.
         </p>
         <div className="mb-4 grid grid-cols-2 gap-4">
           {[

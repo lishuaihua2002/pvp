@@ -145,7 +145,13 @@ export default function ArenaPage() {
   return (
     <div className="relative h-full w-full bg-black">
       <PhaserArena config={config} onSceneReady={(scene: ArenaScene) => setKeyboard(scene.keyboard)} />
-      <TouchControls keyboard={keyboard} />
+      <TouchControls
+        pad={keyboard}
+        onQuit={() => {
+          setExitReason('self')
+          if (userId) void exitMatch(userId, 'self')
+        }}
+      />
       <div className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-black/60 px-2 py-1 text-xs text-gray-400">
         {ping !== null ? `Ping ${ping}ms` : 'Connecting...'}
       </div>
