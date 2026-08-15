@@ -1,4 +1,4 @@
-import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision'
+import { FilesetResolver, ImageSegmenter, PoseLandmarker } from '@mediapipe/tasks-vision'
 import type { PartType } from '../types/fighter'
 
 /** Browser-side body-part detection using MediaPipe Pose (runs fully locally). */
@@ -12,12 +12,24 @@ export interface PartBox {
   angle: number
 }
 
+let filesetPromise: Promise<Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>> | null = null
+
+function getFileset() {
+  if (!filesetPromise) {
+    filesetPromise = FilesetResolver.forVisionTasks('/mediapipe-wasm')
+    filesetPromise.catch(() => {
+      filesetPromise = null
+    })
+  }
+  return filesetPromise
+}
+
 let landmarkerPromise: Promise<PoseLandmarker> | null = null
 
 function getLandmarker(): Promise<PoseLandmarker> {
   if (!landmarkerPromise) {
     landmarkerPromise = (async () => {
-      const fileset = await FilesetResolver.forVisionTasks('/mediapipe-wasm')
+      const fileset = await getFileset()
       return PoseLandmarker.createFromOptions(fileset, {
         baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task' },
         runningMode: 'IMAGE',
@@ -29,6 +41,69 @@ function getLandmarker(): Promise<PoseLandmarker> {
     })
   }
   return landmarkerPromise
+}
+
+let segmenterPromise: Promise<ImageSegmenter> | null = null
+
+function getSegmenter(): Promise<ImageSegmenter> {
+  if (!segmenterPromise) {
+    segmenterPromise = (async () => {
+      const fileset = await getFileset()
+      return ImageSegmenter.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: '/models/selfie_segmenter.tflite' },
+        runningMode: 'IMAGE',
+        outputConfidenceMasks: true,
+        outputCategoryMask: false,
+      })
+    })()
+    segmenterPromise.catch(() => {
+      segmenterPromise = null
+    })
+  }
+  return segmenterPromise
+}
+
+/**
+ * Segments the person out of the photo. Returns a grayscale-alpha mask canvas
+ * at the photo's size (opaque = person, transparent = background), or null on failure.
+ */
+export async function segmentPerson(photo: HTMLCanvasElement): Promise<HTMLCanvasElement | null> {
+  const segmenter = await getSegmenter()
+  const result = segmenter.segment(photo)
+  const mask = result.confidenceMasks?.[0]
+  if (!mask) {
+    result.close()
+    return null
+  }
+  try {
+    const mw = mask.width
+    const mh = mask.height
+    const values = mask.getAsFloat32Array()
+    const imageData = new ImageData(mw, mh)
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i]
+      // soft alpha ramp keeps edges smooth while dropping clear background
+      const a = v < 0.25 ? 0 : v > 0.75 ? 255 : Math.round(((v - 0.25) / 0.5) * 255)
+      const o = i * 4
+      imageData.data[o] = 255
+      imageData.data[o + 1] = 255
+      imageData.data[o + 2] = 255
+      imageData.data[o + 3] = a
+    }
+    const small = document.createElement('canvas')
+    small.width = mw
+    small.height = mh
+    small.getContext('2d')!.putImageData(imageData, 0, 0)
+    const out = document.createElement('canvas')
+    out.width = photo.width
+    out.height = photo.height
+    const ctx = out.getContext('2d')!
+    ctx.imageSmoothingEnabled = true
+    ctx.drawImage(small, 0, 0, out.width, out.height)
+    return out
+  } finally {
+    result.close()
+  }
 }
 
 interface Pt {

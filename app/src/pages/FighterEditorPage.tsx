@@ -7,7 +7,7 @@ import { saveLocalFighter } from '../lib/localFighters'
 import { ALL_PART_TYPES, type PartType, type FighterManifest, type FighterPart } from '../types/fighter'
 import PhaserArena from '../components/PhaserArena'
 import { initAudio, playSfx } from '../game/audio/sfx'
-import { detectPartBoxes } from '../lib/poseDetect'
+import { detectPartBoxes, segmentPerson } from '../lib/poseDetect'
 
 const PART_LABELS: Record<PartType, string> = {
   head: 'Head',
@@ -99,6 +99,8 @@ export default function FighterEditorPage() {
   const userId = session?.user.id
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [photo, setPhoto] = useState<HTMLCanvasElement | null>(null)
+  const [mask, setMask] = useState<HTMLCanvasElement | null>(null)
+  const [removeBackground, setRemoveBackground] = useState(true)
   const [rects, setRects] = useState<Record<PartType, Rect> | null>(null)
   const [selectedPart, setSelectedPart] = useState<PartType>('head')
   const [mode, setMode] = useState<'move' | 'resize' | 'rotate' | 'erase'>('move')
@@ -131,6 +133,9 @@ export default function FighterEditorPage() {
       setStrokes([])
       setUndoStack([])
       setRedoStack([])
+      setMask(null)
+      // best-effort: segment the person in the background so parts get smooth cutouts
+      segmentPerson(canvas).then(setMask, () => setMask(null))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -292,6 +297,30 @@ export default function FighterEditorPage() {
       ctx.rotate(-r.angle)
       ctx.drawImage(photo, -cx, -cy)
       ctx.restore()
+      if (removeBackground && mask) {
+        // keep only person pixels (same rotated sampling as the photo)
+        ctx.globalCompositeOperation = 'destination-in'
+        ctx.save()
+        ctx.translate(c.width / 2, c.height / 2)
+        ctx.rotate(-r.angle)
+        ctx.drawImage(mask, -cx, -cy)
+        ctx.restore()
+        ctx.globalCompositeOperation = 'source-over'
+      }
+      // feathered rounded-rect mask removes hard box corners and edge seams
+      const feather = Math.max(2, Math.min(c.width, c.height) * 0.08)
+      const radius = Math.min(c.width, c.height) * 0.25
+      const fm = document.createElement('canvas')
+      fm.width = c.width
+      fm.height = c.height
+      const fctx = fm.getContext('2d')!
+      fctx.filter = `blur(${feather}px)`
+      fctx.fillStyle = '#fff'
+      fctx.beginPath()
+      fctx.roundRect(feather, feather, c.width - feather * 2, c.height - feather * 2, radius)
+      fctx.fill()
+      ctx.globalCompositeOperation = 'destination-in'
+      ctx.drawImage(fm, 0, 0)
       ctx.globalCompositeOperation = 'destination-out'
       const cos = Math.cos(-r.angle)
       const sin = Math.sin(-r.angle)
@@ -492,6 +521,15 @@ export default function FighterEditorPage() {
               >
                 {detecting ? 'Detecting...' : '\u2728 Auto-detect body parts'}
               </button>
+              <label className="mb-3 flex items-center gap-2 text-xs text-gray-400">
+                <input
+                  type="checkbox"
+                  checked={removeBackground}
+                  onChange={(e) => setRemoveBackground(e.target.checked)}
+                  disabled={!mask}
+                />
+                Smooth cutout (auto-remove background{mask ? '' : ' — unavailable for this photo'})
+              </label>
               <div className="mb-2 text-sm font-bold text-arcade-cyan">Body parts</div>
               <div className="grid grid-cols-2 gap-1.5">
                 {ALL_PART_TYPES.map((pt) => (
