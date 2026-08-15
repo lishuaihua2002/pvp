@@ -4,14 +4,16 @@ import {
   createSimState,
   stepSim,
   ARENA_WIDTH,
+  CHARGE_BOUNCES,
   CHARGE_SPEED,
+  LAUNCH_SPEED,
   ENERGY_MAX,
   GROUND_Y,
   KNOCKDOWN_THRESHOLD,
   EMPTY_INPUT,
   SIM_FPS,
 } from './sim'
-import type { CombatInput } from '../../types/combat'
+import type { ActionName, CombatInput } from '../../types/combat'
 
 const idle = (frame: number): CombatInput => ({ ...EMPTY_INPUT, frame, seq: frame })
 const input = (frame: number, over: Partial<CombatInput>): CombatInput => ({ ...idle(frame), ...over })
@@ -230,6 +232,33 @@ describe('combat sim', () => {
     expect(bounceLandings).toBeGreaterThan(1)
     expect(s.players[1].impact).toBe(0)
     expect(s.players[1].action).toBe('idle')
+  })
+
+  it('a launched fighter flies into the wall and rebounds off it', () => {
+    const s = createSimState('a', 'b')
+    const victim = s.players[1]
+    victim.x = 900
+    victim.action = 'bounce' as ActionName
+    victim.actionFrame = 0
+    victim.bounces = CHARGE_BOUNCES
+    victim.vx = LAUNCH_SPEED
+    victim.vy = -11
+    victim.onGround = false
+
+    let maxX = victim.x
+    let reversed = false
+    for (let i = 0; i < SIM_FPS * 6; i++) {
+      stepSim(s, idle(s.frame), idle(s.frame))
+      maxX = Math.max(maxX, victim.x)
+      if (victim.action === 'bounce' && victim.vx < 0) reversed = true
+      if (victim.action === 'idle') break
+    }
+    // it travelled to the wall, bounced back the other way, and eventually got up
+    expect(maxX).toBeGreaterThan(ARENA_WIDTH - 120)
+    expect(reversed).toBe(true)
+    expect(victim.x).toBeLessThan(maxX - 100)
+    expect(victim.impact).toBe(0)
+    expect(victim.action).toBe('idle')
   })
 
   it('a super that misses keeps charging to the far wall without damaging anyone', () => {

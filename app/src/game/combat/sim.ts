@@ -20,7 +20,9 @@ export const AIR_JUMP_VELOCITY = -15
 export const ENERGY_MAX = 100
 export const CHARGE_SPEED = 18
 export const CHARGE_MAX_FRAMES = 150
-export const CHARGE_BOUNCES = 3
+export const CHARGE_BOUNCES = 4
+/** horizontal launch speed of a fighter hit by a super charge */
+export const LAUNCH_SPEED = 26
 
 export interface HitEvent {
   attackerId: string
@@ -250,8 +252,8 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
       // limited drift while attacking on the ground; keep air momentum
       p.vx *= 0.8
     }
-  } else {
-    // knockback friction during hitstun
+  } else if (p.action !== 'bounce') {
+    // knockback friction during hitstun; a launched fighter keeps its momentum
     p.vx *= 0.9
   }
 
@@ -264,10 +266,10 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
     const landingVy = p.vy
     p.y = GROUND_Y
     if (p.action === 'bounce' && p.bounces > 0 && landingVy > 3) {
-      // launched by a super: bounce back up instead of landing
+      // launched by a super: bounce back up and keep flying instead of landing
       p.bounces--
-      p.vy = -Math.max(7, landingVy * 0.55)
-      p.vx *= 0.7
+      p.vy = -Math.max(8, landingVy * 0.6)
+      p.vx *= 0.85
       p.onGround = false
     } else {
       p.vy = 0
@@ -294,7 +296,22 @@ function stepPlayer(p: PlayerState, input: CombatInput) {
 
   // bounds
   const half = DEFAULT_COLLIDERS.bodyWidth / 2
-  p.x = Math.min(ARENA_WIDTH - half - 20, Math.max(half + 20, p.x))
+  const minX = half + 20
+  const maxX = ARENA_WIDTH - half - 20
+  if (p.action === 'bounce' && (p.x < minX || p.x > maxX)) {
+    // a launched fighter rebounds off the arena walls
+    p.x = Math.min(maxX, Math.max(minX, p.x))
+    if (p.bounces > 0) {
+      p.bounces--
+      p.vx = -p.vx * 0.8
+      p.vy = Math.min(p.vy, -10)
+      p.onGround = false
+    } else {
+      p.vx = 0
+    }
+  } else {
+    p.x = Math.min(maxX, Math.max(minX, p.x))
+  }
 }
 
 /** Advance whole sim one frame. Returns hit events that occurred. */
@@ -351,8 +368,9 @@ export function stepSim(s: SimState, inputA: CombatInput, inputB: CombatInput): 
     victim.action = 'bounce'
     victim.actionFrame = 0
     victim.bounces = CHARGE_BOUNCES
-    victim.vx = charger.facing * 20
-    victim.vy = -15
+    // flat, fast launch so the victim flies across the arena and rebounds off a wall
+    victim.vx = charger.facing * LAUNCH_SPEED
+    victim.vy = -11
     victim.onGround = false
     victim.hitstun = 0
     setAction(charger, 'idle')
