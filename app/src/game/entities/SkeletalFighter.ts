@@ -62,51 +62,42 @@ const rot2 = (x: number, y: number, ang: number): Vec => ({
   y: x * Math.sin(ang) + y * Math.cos(ang),
 })
 
-/** Bone endpoints in game space for the current pose (same hierarchy as the part renderer). */
-function currentGameBones(pose: Pose): GameBone[] {
+/**
+ * Bone endpoints in game space for the current pose. Animation rotations are
+ * applied on top of the fighter's own bind stance (taken from the photo), so
+ * each fighter keeps its natural standing pose.
+ */
+function posedBones(pose: Pose, bind: GameBone[]): GameBone[] {
   const g = (pt: PartType) => pose[pt]
   const bones: GameBone[] = new Array(SKIN_BONES.length)
-  const limb = (
-    upper: PartType,
-    lower: PartType,
-    origin: Vec,
-    segLen: number,
-  ): [GameBone, GameBone] => {
+  const single = (pt: PartType) => {
+    const p = g(pt)
+    const b = bind[BONE_INDEX[pt]]
+    const a: Vec = { x: b.ax + (p?.dx ?? 0), y: b.ay + (p?.dy ?? 0) }
+    const d = rot2(b.bx - b.ax, b.by - b.ay, p?.rot ?? 0)
+    bones[BONE_INDEX[pt]] = { ax: a.x, ay: a.y, bx: a.x + d.x, by: a.y + d.y }
+  }
+  single('torso')
+  single('head')
+  const chain = (upper: PartType, lower: PartType) => {
     const u = g(upper)
     const l = g(lower)
     const ru = u?.rot ?? 0
     const rl = l?.rot ?? 0
-    const a1: Vec = { x: origin.x + (u?.dx ?? 0), y: origin.y + (u?.dy ?? 0) }
-    const d1 = rot2(0, segLen, ru)
-    const b1: Vec = { x: a1.x + d1.x, y: a1.y + d1.y }
-    const j2 = rot2(l?.dx ?? 0, segLen + (l?.dy ?? 0), ru)
+    const bu = bind[BONE_INDEX[upper]]
+    const bl = bind[BONE_INDEX[lower]]
+    const a1: Vec = { x: bu.ax + (u?.dx ?? 0), y: bu.ay + (u?.dy ?? 0) }
+    const d1 = rot2(bu.bx - bu.ax, bu.by - bu.ay, ru)
+    const j2 = rot2(bl.ax - bu.ax + (l?.dx ?? 0), bl.ay - bu.ay + (l?.dy ?? 0), ru)
     const a2: Vec = { x: a1.x + j2.x, y: a1.y + j2.y }
-    const d2 = rot2(0, segLen, ru + rl)
-    return [
-      { ax: a1.x, ay: a1.y, bx: b1.x, by: b1.y },
-      { ax: a2.x, ay: a2.y, bx: a2.x + d2.x, by: a2.y + d2.y },
-    ]
+    const d2 = rot2(bl.bx - bl.ax, bl.by - bl.ay, ru + rl)
+    bones[BONE_INDEX[upper]] = { ax: a1.x, ay: a1.y, bx: a1.x + d1.x, by: a1.y + d1.y }
+    bones[BONE_INDEX[lower]] = { ax: a2.x, ay: a2.y, bx: a2.x + d2.x, by: a2.y + d2.y }
   }
-  const t = g('torso')
-  const ta: Vec = { x: SKELETON.hip.x + (t?.dx ?? 0), y: SKELETON.hip.y + (t?.dy ?? 0) }
-  const td = rot2(0, SKELETON.torsoTop.y - SKELETON.hip.y, t?.rot ?? 0)
-  bones[BONE_INDEX.torso] = { ax: ta.x, ay: ta.y, bx: ta.x + td.x, by: ta.y + td.y }
-  const h = g('head')
-  const hp: Vec = { x: SKELETON.torsoTop.x + (h?.dx ?? 0), y: SKELETON.torsoTop.y + (h?.dy ?? 0) }
-  const hd = rot2(0, -36, h?.rot ?? 0)
-  bones[BONE_INDEX.head] = { ax: hp.x, ay: hp.y, bx: hp.x + hd.x, by: hp.y + hd.y }
-  const [lua, lla] = limb('left-upper-arm', 'left-lower-arm', SKELETON.leftShoulder, SKELETON.elbowOffset)
-  const [rua, rla] = limb('right-upper-arm', 'right-lower-arm', SKELETON.rightShoulder, SKELETON.elbowOffset)
-  const [lul, lll] = limb('left-upper-leg', 'left-lower-leg', SKELETON.leftHip, SKELETON.kneeOffset)
-  const [rul, rll] = limb('right-upper-leg', 'right-lower-leg', SKELETON.rightHip, SKELETON.kneeOffset)
-  bones[BONE_INDEX['left-upper-arm']] = lua
-  bones[BONE_INDEX['left-lower-arm']] = lla
-  bones[BONE_INDEX['right-upper-arm']] = rua
-  bones[BONE_INDEX['right-lower-arm']] = rla
-  bones[BONE_INDEX['left-upper-leg']] = lul
-  bones[BONE_INDEX['left-lower-leg']] = lll
-  bones[BONE_INDEX['right-upper-leg']] = rul
-  bones[BONE_INDEX['right-lower-leg']] = rll
+  chain('left-upper-arm', 'left-lower-arm')
+  chain('right-upper-arm', 'right-lower-arm')
+  chain('left-upper-leg', 'left-lower-leg')
+  chain('right-upper-leg', 'right-lower-leg')
   return bones
 }
 
@@ -164,6 +155,24 @@ function boneLocal(px: number, py: number, b: GameBone): { u: number; v: number 
   return { u: (rx * dx + ry * dy) / lenSq, v: (rx * dy - ry * dx) / lenSq }
 }
 
+/**
+ * The fighter's game-space bind skeleton: the photo's own joint layout,
+ * uniformly scaled to standard fighter height with feet on the ground.
+ */
+function bindBonesFromBody(body: SkinnedBody, imgBones: GameBone[]): GameBone[] {
+  const j = (id: string): Vec => body.joints[id] ?? { x: body.width / 2, y: body.height / 2 }
+  const footY = Math.max(j('foot-l').y, j('foot-r').y)
+  const headY = j('head').y
+  const cx = (j('hip-l').x + j('hip-r').x) / 2
+  const s = 190 / Math.max(40, footY - headY)
+  return imgBones.map((b) => ({
+    ax: (b.ax - cx) * s,
+    ay: (b.ay - footY) * s,
+    bx: (b.bx - cx) * s,
+    by: (b.by - footY) * s,
+  }))
+}
+
 function segDist(px: number, py: number, b: GameBone): number {
   const dx = b.bx - b.ax
   const dy = b.by - b.ay
@@ -185,6 +194,8 @@ export class SkeletalFighter {
   private skin: SkinInfluence[][] = []
   /** mesh vertex index -> grid point index */
   private vertGrid: number[] = []
+  /** game-space bind skeleton (from the photo's own stance) */
+  private bindBones: GameBone[] = []
 
   constructor(scene: Phaser.Scene, manifest: FighterManifest, x: number, y: number) {
     this.manifest = manifest
@@ -241,7 +252,8 @@ export class SkeletalFighter {
   /** Builds the whole-person deformable grid mesh bound to the skeleton. */
   private buildSkinnedMesh(scene: Phaser.Scene, body: SkinnedBody) {
     const { bones: imgBones, halfW } = imageBones(body)
-    const bindBones = currentGameBones({})
+    const bindBones = bindBonesFromBody(body, imgBones)
+    this.bindBones = bindBones
 
     const cell = Math.max(10, Math.max(body.width, body.height) / 26)
     const nx = Math.max(6, Math.min(28, Math.round(body.width / cell)))
@@ -345,7 +357,7 @@ export class SkeletalFighter {
     const root = pose.root
     this.inner.setPosition(root?.dx ?? 0, root?.dy ?? 0)
     if (this.mesh) {
-      const bones = currentGameBones(pose)
+      const bones = posedBones(pose, this.bindBones)
       const verts = this.mesh.vertices
       const n = this.skin.length
       const gx = new Float32Array(n)
