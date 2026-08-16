@@ -1,16 +1,39 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PhaserArena from '../components/PhaserArena'
 import TouchControls from '../components/TouchControls'
 import type { ArenaScene } from '../game/scenes/ArenaScene'
+import type { FighterManifest } from '../types/fighter'
 import { getPresetFighters } from '../lib/presets'
 import { getLocalFighters, deleteLocalFighter } from '../lib/localFighters'
+import { listMyFighters } from '../lib/supabase/fighters'
+import { useAuthStore } from '../stores/authStore'
 import { initAudio, playSfx } from '../game/audio/sfx'
 
 export default function LocalTestPage() {
   const presets = useMemo(() => getPresetFighters(), [])
   const [custom, setCustom] = useState(() => getLocalFighters())
-  const fighters = useMemo(() => [...presets, ...custom], [presets, custom])
+  const [cloud, setCloud] = useState<FighterManifest[]>([])
+  const userId = useAuthStore((s) => s.session?.user.id)
+
+  // fighters created in the lobby are stored in Supabase, so pull those in too
+  useEffect(() => {
+    if (!userId) return
+    void listMyFighters(userId)
+      .then(setCloud)
+      .catch(() => undefined)
+  }, [userId])
+
+  const fighters = useMemo(() => {
+    const seen = new Set<string>()
+    const list: FighterManifest[] = []
+    for (const f of [...presets, ...custom, ...cloud]) {
+      if (seen.has(f.id)) continue
+      seen.add(f.id)
+      list.push(f)
+    }
+    return list
+  }, [presets, custom, cloud])
   const [started, setStarted] = useState(false)
   const [scene, setScene] = useState<ArenaScene | null>(null)
   const [p1, setP1] = useState(0)
@@ -74,6 +97,10 @@ export default function LocalTestPage() {
             </div>
           ))}
         </div>
+
+        {!userId && (
+          <div className="mb-4 text-xs text-gray-500">Log in to also use the fighters you created in the lobby.</div>
+        )}
 
         {custom.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-2 text-xs text-gray-400">
