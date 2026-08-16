@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Photo Fighter — プレゼン</title>
+<style>
+  :root {
+    --bg: #0d0b1a;
+    --panel: #1a1730;
+    --border: #2e2a52;
+    --accent: #ff3e6c;
+    --accent2: #ffd23e;
+    --cyan: #3edcff;
+    --text: #f0eeff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif;
+    overflow: hidden;
+  }
+  .deck { position: relative; height: 100vh; width: 100vw; }
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2.2vh;
+    padding: 6vh 7vw;
+    animation: fade .35s ease;
+  }
+  .slide.active { display: flex; }
+  @keyframes fade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  /* neon grid backdrop */
+  .slide::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(62, 220, 255, .18), transparent 45%),
+      radial-gradient(circle at 85% 90%, rgba(255, 62, 108, .18), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 44px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 44px);
+    pointer-events: none;
+  }
+  .slide > * { position: relative; }
+
+  .kicker { color: var(--cyan); letter-spacing: .35em; font-size: 1.6vh; text-transform: uppercase; }
+  h1 { margin: 0; font-size: 7.2vh; line-height: 1.1; font-weight: 900; }
+  h1 .p { color: var(--accent); }
+  h1 .f { color: var(--cyan); }
+  h2 { margin: 0; font-size: 4.4vh; font-weight: 900; }
+  .lead {
+    font-size: 3.2vh;
+    font-weight: 700;
+    line-height: 1.5;
+    text-shadow: 0 0 24px rgba(255, 62, 108, .45);
+  }
+  .lead em { font-style: normal; color: var(--accent2); }
+  .url {
+    display: inline-block;
+    align-self: flex-start;
+    border: 2px solid var(--cyan);
+    border-radius: 999px;
+    padding: 1vh 2.2vw;
+    color: var(--cyan);
+    font-size: 2vh;
+    text-decoration: none;
+  }
+
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6vw; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 2.4vh 1.6vw;
+  }
+  .card .ico { font-size: 3.6vh; }
+  .card h3 { margin: .8vh 0 .6vh; font-size: 2.2vh; color: var(--cyan); }
+  .card p { margin: 0; font-size: 1.8vh; line-height: 1.6; color: #c9c5e8; }
+
+  .two { display: grid; grid-template-columns: 1.15fr 1fr; gap: 2vw; align-items: start; }
+  ul { margin: 0; padding-left: 1.2em; }
+  li { font-size: 2vh; line-height: 1.75; }
+  li b { color: var(--accent2); }
+  .flow { display: flex; flex-wrap: wrap; gap: .8vw; align-items: center; font-size: 1.8vh; }
+  .step {
+    background: rgba(62, 220, 255, .1);
+    border: 1px solid var(--cyan);
+    border-radius: 10px;
+    padding: .8vh 1vw;
+    white-space: nowrap;
+  }
+  .arrow { color: var(--accent); font-weight: 900; }
+  .stack { display: flex; flex-wrap: wrap; gap: .6vw; }
+  .tag {
+    background: rgba(255, 62, 108, .12);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: .6vh .9vw;
+    font-size: 1.6vh;
+    color: #ffd7e1;
+  }
+  .note { font-size: 1.7vh; color: #8e89b8; }
+
+  .nav {
+    position: fixed;
+    right: 2.2vw;
+    bottom: 2.4vh;
+    display: flex;
+    gap: .6vw;
+    align-items: center;
+    font-size: 1.7vh;
+    color: #8e89b8;
+  }
+  .nav button {
+    background: var(--panel);
+    color: var(--cyan);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: .8vh 1.2vw;
+    font: inherit;
+    cursor: pointer;
+  }
+  .nav button:hover { border-color: var(--cyan); }
+</style>
+</head>
+<body>
+<div class="deck">
+  <section class="slide active">
+    <div class="kicker">Browser 1v1 Fighting Game</div>
+    <h1><span class="p">PHOTO</span><span class="f">FIGHTER</span></h1>
+    <div class="lead">好きなキャラクターで、<em>勝敗のない</em>熱いバトルを。</div>
+    <div class="cards">
+      <div class="card">
+        <div class="ico">🥊</div>
+        <h3>相手は必ず人間（PVP &gt; PVE）</h3>
+        <p>AI 相手はいつかパターンになる。人間同士だから予想外が生まれ、面白い。</p>
+      </div>
+      <div class="card">
+        <div class="ico">📷</div>
+        <h3>キャラクターは世界に一つ</h3>
+        <p>写真 1 枚から姿勢を検出し背景を除去。人物画像まるごとを骨格にバインドして動かす。</p>
+      </div>
+      <div class="card">
+        <div class="ico">💥</div>
+        <h3>勝敗はない、気持ちよさだけ</h3>
+        <p>勝敗判定もランキングもなし。倒し、吹き飛ばし、壁で跳ねる爽快感だけを追う。</p>
+      </div>
+    </div>
+    <a class="url" href="https://lishuaihua2002.github.io/pvp/">https://lishuaihua2002.github.io/pvp/</a>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Social Design &amp; Tech</div>
+    <h2>戦っているうちに、友達になる</h2>
+    <div class="two">
+      <div>
+        <div class="flow">
+          <span class="step">マッチング</span><span class="arrow">▶</span>
+          <span class="step">1 分間バトル</span><span class="arrow">▶</span>
+          <span class="step">自動フレンド</span><span class="arrow">▶</span>
+          <span class="step">チャット・再戦</span>
+        </div>
+        <ul style="margin-top:2vh">
+          <li><b>申請も承認も不要</b>：1 分間戦えば双方が自動でフレンドに。</li>
+          <li><b>フレンド上限 500 人</b>：超えると最も活動が古い相手から自動で外れ、一覧は常に「最近一緒に遊んでいる人」。</li>
+          <li><b>技</b>：2 段ジャンプ・足払い・昇龍拳・飛び蹴り、ゲージ満タンでロックオン必殺技（ダメージなし・壁バウンド）。</li>
+          <li><b>遊べる場所</b>：PC キーボード／スマホのバーチャルスティック／1 台での 2 人プレイ。</li>
+        </ul>
+      </div>
+      <div>
+        <div class="card">
+          <h3>アーキテクチャ</h3>
+          <p>
+            戦闘は両者のブラウザで 60FPS の決定論シミュレーション。<br />
+            Supabase Realtime が入力とホストのスナップショットを中継し、Postgres はマッチング・フレンド・チャットを担当。
+          </p>
+        </div>
+        <div class="stack" style="margin-top:1.6vh">
+          <span class="tag">React 19</span><span class="tag">TypeScript</span><span class="tag">Vite</span>
+          <span class="tag">Phaser 3</span><span class="tag">Tailwind CSS 4</span><span class="tag">Zustand</span>
+          <span class="tag">MediaPipe Pose</span><span class="tag">Supabase</span><span class="tag">GitHub Pages</span>
+        </div>
+        <p class="note" style="margin-top:1.6vh">静的ホスティング＋BaaS のみでサーバーレス運用。</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="nav">
+  <button id="prev">◀</button>
+  <span id="page">1 / 2</span>
+  <button id="next">▶</button>
+</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')]
+  let i = 0
+  const show = (n) => {
+    i = (n + slides.length) % slides.length
+    slides.forEach((s, k) => s.classList.toggle('active', k === i))
+    document.getElementById('page').textContent = `${i + 1} / ${slides.length}`
+  }
+  document.getElementById('next').onclick = () => show(i + 1)
+  document.getElementById('prev').onclick = () => show(i - 1)
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowRight', ' ', 'PageDown', 'Enter'].includes(e.key)) show(i + 1)
+    if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) show(i - 1)
+    if (e.key === 'f') document.documentElement.requestFullscreen?.()
+  })
+  document.querySelector('.deck').addEventListener('click', (e) => {
+    if (e.target.closest('a')) return
+    show(i + 1)
+  })
+</script>
+</body>
+</html>
